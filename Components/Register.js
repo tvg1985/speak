@@ -1,5 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button, StyleSheet, Text, View, TextInput } from 'react-native';
+import { db } from '../Firebase/config';
+import { ref, set } from "firebase/database";
+import * as Crypto from 'expo-crypto';
 
 function Register({ navigation }) {
     const [form, setForm] = useState({
@@ -7,8 +10,24 @@ function Register({ navigation }) {
         password: '',
         confirmPassword: '',
         email: '',
+        role: 'parent',
+        parent_ID: null,
     });
     const [errors, setErrors] = useState({});
+
+    useEffect(() => {
+        const unsubscribe = navigation.addListener('blur', () => {
+            setForm({
+                username: '',
+                password: '',
+                confirmPassword: '',
+                email: '',
+            });
+            setErrors({});
+        });
+
+        return unsubscribe;
+    }, [navigation]);
 
     const validateForm = () => {
         let tempErrors = {};
@@ -46,32 +65,43 @@ function Register({ navigation }) {
         return Object.keys(tempErrors).length === 0;
     };
 
-    const register = () => {
-    if (validateForm()) {
-        fetch(' http://10.0.2.2:8082/register', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(form),
-        })
-            .then(response => response.json())
-            .then(data => {
-                // If registration is successful, navigate to the Login screen
-                if (data.success) {
-                    navigation.navigate('Login');
+    const register = async () => {
+        if (validateForm()) {
+            const usersRef = ref(db, 'users/' + form.username.toLowerCase());
+            get(usersRef).then(async (snapshot) => {
+                if (snapshot.exists()) {
+                    // If user already exists, set error message and provide suggestions
+                    setErrors({
+                        username: 'Username already exists',
+                        suggestions: [
+                            form.username.toLowerCase() + '1',
+                            form.username.toLowerCase() + '2',
+                            form.username.toLowerCase() + '3',
+                        ],
+                    });
                 } else {
-                    // Handle registration failure here
-                    console.error('Registration failed:', data.message);
+                    // If user does not exist, create new user
+                    const hashedPassword = await Crypto.digestStringAsync(
+                        Crypto.CryptoDigestAlgorithm.SHA256,
+                        form.password
+                    );
+                    set(usersRef, {
+                        username: form.username.toLowerCase(),
+                        password: hashedPassword,
+                        email: form.email,
+                        role: form.role,
+                        parent_ID: form.parent_ID,
+                    }).then(() => {
+                        navigation.navigate('Login');
+                    }).catch((error) => {
+                        console.error('Error:', error);
+                    });
                 }
-            })
-            .catch((error) => {
+            }).catch((error) => {
                 console.error('Error:', error);
-                console.log('Form:', form);
             });
-    }
-};
-
+        }
+    };
     const formFields = [
         { name: 'username', placeholder: 'Username' },
         { name: 'password', placeholder: 'Password', secureTextEntry: true },

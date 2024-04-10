@@ -1,34 +1,50 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import {Button, StyleSheet, Text, View, Image, TextInput} from 'react-native';
+import { db } from '../Firebase/config';
+import { ref, get } from "firebase/database";
+import * as Crypto from 'expo-crypto';
+
 
 function Login({ navigation }) {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
 
-    const handleSubmit = () => {
-        fetch('http://10.0.2.2/login', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ username, password }),
-        })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
+    useEffect(() => {
+        const unsubscribe = navigation.addListener('blur', () => {
+            // Clear state here
+            setUsername('');
+            setPassword('');
+            setError('');
+        });
+
+        return unsubscribe;
+    }, [navigation]);
+
+    const handleSubmit = async () => {
+        const usersRef = ref(db, 'users/' + username.toLowerCase());
+        get(usersRef).then(async (snapshot) => {
+            if (snapshot.exists()) {
+                const dbPassword = snapshot.val().password;
+                const hashedPassword = await Crypto.digestStringAsync(
+                    Crypto.CryptoDigestAlgorithm.SHA256,
+                    password
+                );
+                if (dbPassword === hashedPassword) {
                     // If login is successful, navigate to the Home screen
                     navigation.navigate('Home');
                 } else {
                     // If login failed, show error message
-                    setError(data.message);
+                    setError('Invalid username or password');
                 }
-            })
-            .catch((error) => {
-                console.error('Error:', error);
-                setError('An error occurred. Please try again.');
-            });
+            } else {
+                setError('Invalid username or password');
+            }
+        }).catch((error) => {
+            console.error('Error:', error);
+            setError('An error occurred. Please try again.');
+        });
     };
     return (
         <View style={styles.container}>

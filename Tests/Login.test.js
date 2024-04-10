@@ -1,10 +1,17 @@
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
 import Login from './Login';
+import { get } from "firebase/database";
 
 jest.mock('expo-status-bar', () => ({
   StatusBar: 'StatusBar',
 }));
+
+jest.mock('firebase/database', () => ({
+  get: jest.fn(),
+  ref: jest.fn(() => 'users/testuser1'),
+}));
+
 
 describe('Login', () => {
   it('renders correctly', () => {
@@ -34,5 +41,19 @@ describe('Login', () => {
     fireEvent.press(loginButton);
 
     expect(navigation.navigate).toHaveBeenCalledWith('Home');
+  });
+  it('shows error message when username does not exist', async () => {
+    get.mockResolvedValueOnce({ exists: () => false });
+
+    const { getByPlaceholderText, findByText } = render(<Login />);
+    const usernameInput = getByPlaceholderText('Username');
+    const loginButton = getByText('Login');
+
+    fireEvent.changeText(usernameInput, 'testuser1');
+    fireEvent.press(loginButton);
+
+    const errorMessage = await findByText('Username does not exist');
+
+    expect(errorMessage).toBeTruthy();
   });
 });
