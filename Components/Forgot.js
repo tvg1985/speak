@@ -57,7 +57,7 @@ const resetSubmit = () => {
 };
     return (
         <View style={styles.container}>
-            <Text>Please enter the username and email associated with your account</Text>
+            <Text style={styles.forgotMessage}>Please enter the username/email associated with your account</Text>
             <TextInput
                 style={styles.input}
                 value={username}
@@ -111,6 +111,10 @@ const styles = StyleSheet.create({
         justifyContent: 'space-around',
         alignItems: 'center',
         width: '40%',
+    },
+    forgotMessage: {
+        textAlign: 'center',
+        fontSize: 14,
     },
 });
 
