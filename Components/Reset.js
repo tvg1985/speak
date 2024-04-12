@@ -1,37 +1,78 @@
-import React, { useState } from 'react';
-import { Button, StyleSheet, Text, View, TextInput } from 'react-native';
+import React, {useState} from 'react';
+import {Button, StyleSheet, Text, View, TextInput} from 'react-native';
+import {get, ref, set, update} from 'firebase/database';
+import {db} from '../Firebase/config';
+import * as Crypto from 'expo-crypto';
 
-function ResetPassword() {
-    const [code, setCode] = useState('');
+function ResetPassword({route, navigation}) {
+    const [userName, setUserName] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [errorMessage, setErrorMessage] = useState('');
 
-    const resetSubmit = async () => {
-        if (password !== confirmPassword) {
-            setErrorMessage('Passwords do not match');
-            return;
-        }
 
-        try {
-            // This is a placeholder. Replace this with your actual function to reset the password in your database.
-            await resetPassword(code, password);
-        } catch (error) {
-            setErrorMessage(error.message);
-            return;
-        }
+const resetPassword = async () => {
+    const userNameKey = route.params.username;
 
-        // Navigate to the login screen (or wherever you want to go after successfully resetting the password)
-        navigation.navigate('Login');
-    };
+    // Create a reference to the user in the database using the username
+    const userRef = ref(db, 'users/' + userNameKey);
 
+    get(userRef)
+        .then(async (snapshot) => {
+            if (snapshot.exists()) {
+                if (password === '' || confirmPassword === '') {
+                    setErrorMessage('Password is required');
+                    return;
+                }
+
+                if (password !== confirmPassword) {
+                    setErrorMessage('Passwords do not match');
+                    return;
+                }
+
+                // Hash the entered password
+                const hashedPassword = await Crypto.digestStringAsync(
+                    Crypto.CryptoDigestAlgorithm.SHA256,
+                    password
+                );
+
+                // Compare the hashed password with the one in the database
+                if (snapshot.val().password === hashedPassword) {
+                    // If the passwords match, show an error message
+                    setErrorMessage('Please use a new password you have not used previously');
+                } else {
+                    // If the passwords don't match, hash the new password and set it in the database
+                    const newHashedPassword = await Crypto.digestStringAsync(
+                        Crypto.CryptoDigestAlgorithm.SHA256,
+                        password
+                    );
+                    update(userRef, {password: newHashedPassword})
+                        .then(() => {
+                            // Show an alert that the password has been changed
+                            alert('Password successfully changed');
+
+                            // Navigate to the 'Login' screen
+                            navigation.navigate('Login');
+                        })
+                        .catch((error) => {
+                            console.error("Error updating password: ", error);
+                        });
+                }
+            } else {
+                setErrorMessage('Invalid username');
+            }
+        })
+        .catch((error) => {
+            console.error("Error checking username: ", error);
+        });
+};
     return (
         <View style={styles.container}>
             <TextInput
                 style={styles.input}
-                value={code}
-                onChangeText={setCode}
-                placeholder="Enter Code"
+                value={userName}
+                onChangeText={setUserName}
+                placeholder="Enter Username associated with account"
             />
             <TextInput
                 style={styles.input}
@@ -51,7 +92,7 @@ function ResetPassword() {
             <View style={styles.buttonContainer}>
                 <Button
                     title="Submit"
-                    onPress={resetSubmit}
+                    onPress={resetPassword}
                     color="green"
                 />
             </View>

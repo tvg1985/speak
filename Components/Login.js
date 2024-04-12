@@ -23,6 +23,10 @@ function Login({ navigation }) {
     }, [navigation]);
 
     const handleSubmit = async () => {
+        if (username.includes('@')) {
+            setError('Please enter only the username, not an email');
+            return;
+        }
         const usersRef = ref(db, 'users/' + username.toLowerCase());
         get(usersRef).then(async (snapshot) => {
             if (snapshot.exists()) {
@@ -71,7 +75,7 @@ function Login({ navigation }) {
                 style={styles.forgotPassword}
                 onPress={() => navigation.navigate('Forgot')}
             >
-                Forgot username/password?
+                Forgot password?
             </Text>
             <View style={styles.buttonContainer}>
                 <Button

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Button, StyleSheet, Text, View, TextInput } from 'react-native';
+import { Button, StyleSheet, Text, View, TextInput, Alert } from 'react-native';
 import { db } from '../Firebase/config';
-import { ref, set } from "firebase/database";
+import { ref, set, get } from "firebase/database";
 import * as Crypto from 'expo-crypto';
+
 
 function Register({ navigation }) {
     const [form, setForm] = useState({
@@ -66,42 +67,46 @@ function Register({ navigation }) {
     };
 
     const register = async () => {
-        if (validateForm()) {
-            const usersRef = ref(db, 'users/' + form.username.toLowerCase());
-            get(usersRef).then(async (snapshot) => {
-                if (snapshot.exists()) {
-                    // If user already exists, set error message and provide suggestions
-                    setErrors({
-                        username: 'Username already exists',
-                        suggestions: [
-                            form.username.toLowerCase() + '1',
-                            form.username.toLowerCase() + '2',
-                            form.username.toLowerCase() + '3',
-                        ],
-                    });
-                } else {
-                    // If user does not exist, create new user
-                    const hashedPassword = await Crypto.digestStringAsync(
-                        Crypto.CryptoDigestAlgorithm.SHA256,
-                        form.password
-                    );
-                    set(usersRef, {
-                        username: form.username.toLowerCase(),
-                        password: hashedPassword,
-                        email: form.email,
-                        role: form.role,
-                        parent_ID: form.parent_ID,
-                    }).then(() => {
-                        navigation.navigate('Login');
-                    }).catch((error) => {
-                        console.error('Error:', error);
-                    });
-                }
-            }).catch((error) => {
-                console.error('Error:', error);
-            });
-        }
-    };
+    if (validateForm()) {
+        // Replace '.' with ',' in the email
+        const emailKey = form.email.replace(/\./g, ',');
+
+        const usersRef = ref(db, 'users/' + form.username.toLowerCase());
+        get(usersRef).then(async (snapshot) => {
+            if (snapshot.exists()) {
+                // If user already exists, set error message and provide suggestions
+                setErrors({
+                    username: 'Username already exists',
+                    suggestions: [
+                        form.username.toLowerCase() + '1',
+                        form.username.toLowerCase() + '2',
+                        form.username.toLowerCase() + '3',
+                    ],
+                });
+            } else {
+                // If user does not exist, create new user
+                const hashedPassword = await Crypto.digestStringAsync(
+                    Crypto.CryptoDigestAlgorithm.SHA256,
+                    form.password
+                );
+                set(usersRef, {
+                    username: form.username.toLowerCase(),
+                    password: hashedPassword,
+                    email: emailKey, // Store the modified email in the database
+                    role: form.role,
+                    parent_ID: form.parent_ID,
+                }).then(() => {
+                    window.alert("You are successfully registered");
+                    navigation.navigate('Login');
+                }).catch((error) => {
+                    console.error('Error:', error);
+                });
+            }
+        }).catch((error) => {
+            console.error('Error:', error);
+        });
+    }
+};
     const formFields = [
         { name: 'username', placeholder: 'Username' },
         { name: 'password', placeholder: 'Password', secureTextEntry: true },
@@ -129,6 +134,11 @@ function Register({ navigation }) {
                     title="Register"
                     onPress={register}
                     color="green"
+                />
+                <Button
+                    title="Cancel"
+                    onPress={() => navigation.navigate('Login')}
+                    color="red"
                 />
             </View>
             <Text style={styles.footnote}>
