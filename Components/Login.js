@@ -22,34 +22,42 @@ function Login({ navigation }) {
         return unsubscribe;
     }, [navigation]);
 
-    const handleSubmit = async () => {
-        if (username.includes('@')) {
-            setError('Please enter only the username, not an email');
-            return;
-        }
-        const usersRef = ref(db, 'users/' + username.toLowerCase());
-        get(usersRef).then(async (snapshot) => {
-            if (snapshot.exists()) {
-                const dbPassword = snapshot.val().password;
+   const handleSubmit = async () => {
+    if (username.includes('@')) {
+        setError('Please enter only the username, not an email');
+        return;
+    }
+    const usersRef = ref(db, 'users/');
+    get(usersRef).then(async (snapshot) => {
+        if (snapshot.exists()) {
+            let userExists = false;
+            const users = snapshot.val();
+            for (const userId in users) {
+                const user = users[userId];
+                const dbUsername = user.user_name;
+                const dbPassword = user.password;
                 const hashedPassword = await Crypto.digestStringAsync(
                     Crypto.CryptoDigestAlgorithm.SHA256,
                     password
                 );
-                if (dbPassword === hashedPassword) {
+                if (dbUsername.toLowerCase() === username.toLowerCase() && dbPassword === hashedPassword) {
                     // If login is successful, navigate to the Home screen
                     navigation.navigate('Home');
-                } else {
-                    // If login failed, show error message
-                    setError('Invalid username or password');
+                    userExists = true;
+                    break; // Stop looping through the users
                 }
-            } else {
+            }
+            if (!userExists) {
                 setError('Invalid username or password');
             }
-        }).catch((error) => {
-            console.error('Error:', error);
-            setError('An error occurred. Please try again.');
-        });
-    };
+        } else {
+            setError('Invalid username or password');
+        }
+    }).catch((error) => {
+        console.error('Error:', error);
+        setError('An error occurred. Please try again.');
+    });
+};
     return (
         <View style={styles.container}>
             <Image

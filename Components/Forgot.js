@@ -8,6 +8,7 @@ function ForgotPassword({ navigation }) {
     const [message, setMessage] = useState('');
     const [username, setUsername] = useState('');
 
+
 const resetSubmit = () => {
     if (username === '' || email === '') {
         setMessage('Username and Email are required');
@@ -23,29 +24,33 @@ const resetSubmit = () => {
     const lowerCaseEmail = email.toLowerCase().trim();
     const emailKey = lowerCaseEmail.replace(/\./g, ',');
 
+    // Convert the username to lowercase and trim it
+    const lowerCaseUsername = username.toLowerCase().trim();
+
     // Create a reference to the 'users' node in the database
     const usersRef = ref(db, 'users/');
 
-    // Use the child() method to get a reference to the child node with the key as the username
-    const userRef = child(usersRef, username.toLowerCase().trim()); // use the exact username as input
-
     // Use the get() method to retrieve the data at the reference
-
-    get(userRef)
+    get(usersRef)
         .then((snapshot) => {
-            console.log(snapshot.val());
-            if (snapshot.exists()) { // if snapshot exists, username exists
-                const dbEmail = snapshot.val().email;
-                if (dbEmail) {
-                    const lowerDbEmail = dbEmail.toLowerCase().trim().replace(',', '.');
-                    if (lowerDbEmail === lowerCaseEmail) {
-                        // Navigate to the 'Reset' screen with the username
-                        navigation.navigate('Reset', { username: username, email: emailKey.toLowerCase().trim()});
-                    } else {
-                        setMessage('Email does not match');
+            if (snapshot.exists()) { // if snapshot exists, users exist
+                let userExists = false;
+                snapshot.forEach((childSnapshot) => {
+                    const dbEmail = childSnapshot.val().email;
+                    const dbUsername = childSnapshot.val().user_name;
+                    if (dbEmail && dbUsername) {
+                        const lowerDbEmail = dbEmail.toLowerCase().trim().replace(',', '.');
+                        const lowerDbUsername = dbUsername.toLowerCase().trim();
+                        if (lowerDbEmail === lowerCaseEmail && lowerDbUsername === lowerCaseUsername) {
+                            // Navigate to the 'Reset' screen with the user_id
+                            navigation.navigate('Reset', { user_id: childSnapshot.key, email: emailKey });
+                            userExists = true;
+                            return true; // Stop looping through the snapshot
+                        }
                     }
-                } else {
-                    console.error("Error: Email not found in database for user: ", username);
+                });
+                if (!userExists) {
+                    setMessage('Email or Username does not match');
                 }
             } else {
                 setMessage('User does not exist');

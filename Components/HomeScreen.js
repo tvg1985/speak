@@ -4,6 +4,7 @@ import Login from "./Login";
 import React from 'react';
 
 function HomeScreen({navigation}) {
+
   return (
     <View style={styles.container}>
         <Text>Home Screen</Text>

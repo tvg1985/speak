@@ -12,58 +12,67 @@ function ResetPassword({route, navigation}) {
 
 
 const resetPassword = async () => {
-    const userNameKey = route.params.username;
+    const { user_id } = route.params;
 
-    // Create a reference to the user in the database using the username
-    const userRef = ref(db, 'users/' + userNameKey);
+    // Create a reference to the user in the database using the user_id
+    const userRef = ref(db, 'users/' + user_id);
+
 
     get(userRef)
         .then(async (snapshot) => {
             if (snapshot.exists()) {
-                if (password === '' || confirmPassword === '') {
-                    setErrorMessage('Password is required');
-                    return;
-                }
+                const dbUsername = snapshot.val().user_name;
+                if (dbUsername && dbUsername.toLowerCase().trim() === userName.toLowerCase().trim()) {
+                    if (password === '' || confirmPassword === '') {
+                        setErrorMessage('Password is required');
+                        return;
+                    }
 
-                if (password !== confirmPassword) {
-                    setErrorMessage('Passwords do not match');
-                    return;
-                }
+                    if (password !== confirmPassword) {
+                        setErrorMessage('Passwords do not match');
+                        return;
+                    }
 
-                // Hash the entered password
-                const hashedPassword = await Crypto.digestStringAsync(
-                    Crypto.CryptoDigestAlgorithm.SHA256,
-                    password
-                );
-
-                // Compare the hashed password with the one in the database
-                if (snapshot.val().password === hashedPassword) {
-                    // If the passwords match, show an error message
-                    setErrorMessage('Please use a new password you have not used previously');
-                } else {
-                    // If the passwords don't match, hash the new password and set it in the database
-                    const newHashedPassword = await Crypto.digestStringAsync(
+                    // Hash the entered password
+                    const hashedPassword = await Crypto.digestStringAsync(
                         Crypto.CryptoDigestAlgorithm.SHA256,
                         password
                     );
-                    update(userRef, {password: newHashedPassword})
-                        .then(() => {
-                            // Show an alert that the password has been changed
-                            alert('Password successfully changed');
 
-                            // Navigate to the 'Login' screen
-                            navigation.navigate('Login');
-                        })
-                        .catch((error) => {
-                            console.error("Error updating password: ", error);
-                        });
+                    // Compare the hashed password with the one in the database
+                    if (snapshot.val().password === hashedPassword) {
+                        // If the passwords match, show an error message
+                        setErrorMessage('Please use a new password you have not used previously');
+                    } else {
+                        // If the passwords don't match, hash the new password and set it in the database
+                        const newHashedPassword = await Crypto.digestStringAsync(
+                            Crypto.CryptoDigestAlgorithm.SHA256,
+                            password
+                        );
+                        update(userRef, {password: newHashedPassword})
+                            .then(() => {
+                                // Show an alert that the password has been changed
+                                alert('Password successfully changed');
+
+                                // Flush user_id
+                                route.params.user_id = null;
+
+                                // Navigate to the 'Login' screen
+                                navigation.navigate('Login');
+                            })
+                            .catch((error) => {
+                                console.error("Error updating password: ", error);
+                            });
+                    }
+                } else {
+                    setErrorMessage('Invalid username');
                 }
             } else {
-                setErrorMessage('Invalid username');
+                setErrorMessage('Invalid user ID');
             }
         })
         .catch((error) => {
-            console.error("Error checking username: ", error);
+            console.error("Error checking user: ", error);
         });
 };
     return (
