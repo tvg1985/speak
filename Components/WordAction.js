@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, Button, StyleSheet, Dimensions } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, Button, StyleSheet, Dimensions, Modal, TextInput } from 'react-native';
 import {UserIdContext} from "./UserIdContext";
 
 const { width, height } = Dimensions.get('window');
@@ -7,7 +7,30 @@ const { width, height } = Dimensions.get('window');
 function WordAction({ navigation }) {
     const { userId } = React.useContext(UserIdContext);
 
-    console.log('userId:', userId);
+    const [modalVisible, setModalVisible] = useState(false);
+    const [photoName, setPhotoName] = useState('');
+    const [photo, setPhoto] = useState('');
+    const [categoryId, setCategoryId] = useState('');
+    const [audioFile, setAudioFile] = useState('');
+
+    const addAction = () => {
+        // Handle the form submission here
+        // For example, make an API call to add a new photo
+
+        // Close the modal
+        setModalVisible(false);
+    };
+
+    const actionCancel = () => {
+        // Clear the form
+        setPhotoName('');
+        setPhoto('');
+        setCategoryId('');
+        setAudioFile('');
+
+        // Close the modal
+        setModalVisible(false);
+    };
 
     return (
         <View style={styles.container}>
@@ -29,10 +52,8 @@ function WordAction({ navigation }) {
                 <View style={styles.subsection}>
                     <Text style={styles.header}>Word Actions:</Text>
                     <Button
-                        title="Add"
-                        onPress={() => {
-                            // add function here
-                        }}
+                        title="Add Action"
+                        onPress={() => setModalVisible(true)}
                         color="blue"
                     />
                 </View>
@@ -47,6 +68,51 @@ function WordAction({ navigation }) {
                     />
                 </View>
             </View>
+            <Modal
+                animationType="slide"
+                transparent={true}
+                visible={modalVisible}
+                onRequestClose={actionCancel}
+            >
+                <View style={styles.centeredView}>
+                    <View style={styles.modalView}>
+                        <TextInput
+                            style={styles.input}
+                            value={photoName}
+                            onChangeText={setPhotoName}
+                            placeholder="Photo Name"
+                        />
+                        <TextInput
+                            style={styles.input}
+                            value={photo}
+                            onChangeText={setPhoto}
+                            placeholder="Photo"
+                        />
+                        <TextInput
+                            style={styles.input}
+                            value={categoryId}
+                            onChangeText={setCategoryId}
+                            placeholder="Category ID"
+                        />
+                        <TextInput
+                            style={styles.input}
+                            value={audioFile}
+                            onChangeText={setAudioFile}
+                            placeholder="Audio File"
+                        />
+                        <Button
+                            title="Add"
+                            onPress={addAction}
+                            color="blue"
+                        />
+                        <Button
+                            title="Cancel"
+                            onPress={actionCancel}
+                            color="red"
+                        />
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 }
@@ -83,6 +149,35 @@ const styles = StyleSheet.create({
         fontSize: 20,
         fontWeight: 'bold',
         marginBottom: 10,
+    },
+    centeredView: {
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+        marginTop: 22
+    },
+    modalView: {
+        margin: 20,
+        backgroundColor: "#f0f0f0",
+        borderRadius: 20,
+        padding: 35,
+        alignItems: "center",
+        shadowColor: "#000",
+        shadowOffset: {
+            width: 0,
+            height: 2
+        },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
+        elevation: 5
+    },
+    input: {
+        width: '80%',
+        height: 40,
+        borderColor: 'gray',
+        borderWidth: 1,
+        marginBottom: 10,
+        padding: 10,
     },
 });
 
