@@ -4,9 +4,12 @@ import {Button, StyleSheet, Text, View, Image, TextInput} from 'react-native';
 import { db } from '../Firebase/config';
 import { ref, get } from "firebase/database";
 import * as Crypto from 'expo-crypto';
+import {UserIdContext} from "./UserIdContext";
+
 
 
 function Login({ navigation }) {
+    const {setUserId} = React.useContext(UserIdContext);
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
@@ -42,6 +45,7 @@ function Login({ navigation }) {
                 );
                 if (dbUsername.toLowerCase() === username.toLowerCase() && dbPassword === hashedPassword) {
                     // If login is successful, navigate to the Home screen
+                    setUserId(userId);
                     navigation.navigate('Home');
                     userExists = true;
                     break; // Stop looping through the users

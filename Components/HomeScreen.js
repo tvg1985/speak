@@ -1,17 +1,20 @@
 import { StatusBar } from 'expo-status-bar';
 import {Button, StyleSheet, Text, View, Image, TouchableOpacity, Dimensions} from 'react-native'; // Im
 import React from 'react';
+import {UserIdContext} from "./UserIdContext";
 
 
 const { width, height } = Dimensions.get('window');
 
 function HomeScreen({navigation}) {
+    const {setUserId} = React.useContext(UserIdContext);
     return (
         <View style={styles.container}>
             <View style={styles.topButtons}>
                 <Button
                     title="Logout"
                     onPress={() => {
+                        setUserId(null);
                         navigation.navigate('Login');
                     }}
                     color="red"
