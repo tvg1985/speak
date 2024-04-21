@@ -1,36 +1,168 @@
-import React, { useState } from 'react';
-import { View, Text, Button, StyleSheet, Dimensions, Modal, TextInput } from 'react-native';
+import React, {useState, useEffect} from 'react';
+import {View, Text, Button, StyleSheet, Dimensions, Modal, TextInput} from 'react-native';
 import {UserIdContext} from "./UserIdContext";
+import {Picker} from "@react-native-picker/picker";
+import {db} from '../Firebase/config';
+import {getStorage, ref, uploadBytes, getDownloadURL} from "firebase/storage";
+import {getDatabase, ref as dbRef, push, set} from "firebase/database";
+import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
+import {useForm, Controller} from 'react-hook-form';
+import * as FileSystem from 'expo-file-system';
+import * as ImageManipulator from 'expo-image-manipulator';
 
-const { width, height } = Dimensions.get('window');
+const {width, height} = Dimensions.get('window');
 
-function WordAction({ navigation }) {
-    const { userId } = React.useContext(UserIdContext);
+const storage = getStorage();
 
-    const [modalVisible, setModalVisible] = useState(false);
+function WordAction({navigation}) {
+    const {userId} = React.useContext(UserIdContext);
+    console.log('user id: ', userId);
     const [photoName, setPhotoName] = useState('');
-    const [photo, setPhoto] = useState('');
+    const [modalVisible, setModalVisible] = useState(false);
+    const [photo, setPhoto] = useState(null);
     const [categoryId, setCategoryId] = useState('');
-    const [audioFile, setAudioFile] = useState('');
+    const [audioFile, setAudioFile] = useState(null);
+    const [categories, setCategories] = useState([]);
+    const [errorMessage, setErrorMessage] = useState('');
+    const [photoFileName, setPhotoFileName] = useState('Pick Photo');
+    const [audioFileName, setAudioFileName] = useState('Pick Audio');
+    const {control, handleSubmit, formState: {errors}, setValue, reset} = useForm();
 
-    const addAction = () => {
-        // Handle the form submission here
-        // For example, make an API call to add a new photo
-
-        // Close the modal
-        setModalVisible(false);
+    const fetchCategories = async () => {
+        const categoriesRef = db.ref('categories');
+        const snapshot = await categoriesRef.orderByChild('user_id').equalTo(userId).once('value');
+        const categoriesData = snapshot.val();
+        if (categoriesData) {
+            const categoriesArray = Object.values(categoriesData);
+            setCategories(categoriesArray);
+        }
     };
 
-    const actionCancel = () => {
-        // Clear the form
+    const handleAddAction = () => {
+        fetchCategories();
+        setModalVisible(true);
+    };
+
+    const handleAdd = async (data) => {
+        const {photoName, categoryId} = data;
+
+        if (!photoName.trim()) {
+            setErrorMessage('Photo Name is required');
+            return;
+        }
+
+        if (!photo) {
+            setErrorMessage('Photo is required');
+            return;
+        }
+
+        if (!audioFile) {
+            setErrorMessage('Audio File is required');
+            return;
+        }
+
+        const photoRef = ref(storage, `photos/${photoName}`);
+        const audioRef = ref(storage, `audio/${photoName}`);
+
+        await uploadBytes(photoRef, photo);
+        await uploadBytes(audioRef, audioFile);
+
+        const photoURL = await getDownloadURL(photoRef);
+        const audioURL = await getDownloadURL(audioRef);
+
+        const newPhoto = {
+            photo_name: photoName,
+            photo: photoURL,
+            user_id: userId,
+            category_id: categoryId || '',
+            audio_file: audioURL,
+        };
+
+        const photosRef = dbRef(db, 'photos');
+        const newPhotoRef = push(photosRef);
+        await set(newPhotoRef, newPhoto);
+
+        handleCancel();
+    };
+
+    const handleCancel = () => {
         setPhotoName('');
-        setPhoto('');
+        setPhoto(null);
         setCategoryId('');
-        setAudioFile('');
-
-        // Close the modal
+        setAudioFile(null);
+        setPhotoFileName('Pick Photo'); // Reset the photo file name
+        setAudioFileName('Pick Audio'); // Reset the audio file name
         setModalVisible(false);
+        reset();
     };
+
+const handlePickImage = async () => {
+    try {
+        let result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: false,
+        });
+
+        console.log("Image picker result: ", result);
+
+        if (!result.cancelled && result.assets && result.assets[0].uri) {
+            const uri = result.assets[0].uri;
+            if (typeof uri === 'string') {
+                const manipResult = await ImageManipulator.manipulateAsync(
+                    uri,
+                    [{ resize: { width: 300 } }],
+                    { compress: 0.7, format: ImageManipulator.SaveFormat.PNG }
+                );
+                setPhoto(manipResult.uri);
+                // Extract the file name from the URI
+                const fileName = manipResult.uri.split('/').pop();
+                setPhotoFileName(fileName);
+
+                const truncatedFileName = truncateName(fileName, 10);
+                setPhotoFileName(truncatedFileName);
+
+                // Log the selected photo
+                console.log("Selected photo: ", manipResult);
+            }
+        }
+    } catch (error) {
+        console.error("Error picking image: ", error);
+    }
+};
+
+const pickAudioFile = async () => {
+    let result = await DocumentPicker.getDocumentAsync({
+        type: "audio/*",
+    });
+
+    if (!result.cancelled && result.assets && result.assets[0].uri) {
+        let uri = result.assets[0].uri;
+        // Add default extension if none is found
+        if (!uri.endsWith('.mp3')) {
+            uri += '.mp3';
+        }
+        console.log("Audio file is being selected: ", uri); // Log that an audio file is being selected
+        setAudioFile(uri);
+        // Extract the file name from the URI
+        const fileName = uri.split('/').pop();
+        const truncatedFileName = truncateName(fileName, 10);
+        setAudioFileName(truncatedFileName);
+    } else {
+        console.log("No audio file was selected or an error occurred. Result: ", result);
+    }
+};
+
+    useEffect(() => {
+        fetchCategories();
+    }, []);
+
+    function truncateName(name, maxLength) {
+        if (name.length > maxLength) {
+            return name.substring(0, maxLength) + '...';
+        }
+        return name;
+    }
 
     return (
         <View style={styles.container}>
@@ -53,7 +185,7 @@ function WordAction({ navigation }) {
                     <Text style={styles.header}>Word Actions:</Text>
                     <Button
                         title="Add Action"
-                        onPress={() => setModalVisible(true)}
+                        onPress={handleAddAction}
                         color="blue"
                     />
                 </View>
@@ -72,50 +204,85 @@ function WordAction({ navigation }) {
                 animationType="slide"
                 transparent={true}
                 visible={modalVisible}
-                onRequestClose={actionCancel}
+                onRequestClose={handleCancel}
             >
                 <View style={styles.centeredView}>
                     <View style={styles.modalView}>
-                        <TextInput
-                            style={styles.input}
-                            value={photoName}
-                            onChangeText={setPhotoName}
-                            placeholder="Photo Name"
+                        {errorMessage ? <Text style={{color: 'red'}}>{errorMessage}</Text> : null}
+                        <Controller
+                            control={control}
+                            render={({field: {onChange, onBlur, value}}) => (
+                                <TextInput
+                                    onBlur={onBlur}
+                                    onChangeText={value => {
+                                        setPhotoName(value);
+                                        onChange(value);
+                                    }}
+                                    value={photoName}
+                                    placeholder="Photo Name"
+                                />
+                            )}
+                            name="photoName"
+                            rules={{required: true}}
+                            defaultValue=""
                         />
-                        <TextInput
-                            style={styles.input}
-                            value={photo}
-                            onChangeText={setPhoto}
-                            placeholder="Photo"
-                        />
-                        <TextInput
-                            style={styles.input}
-                            value={categoryId}
-                            onChangeText={setCategoryId}
-                            placeholder="Category ID"
-                        />
-                        <TextInput
-                            style={styles.input}
-                            value={audioFile}
-                            onChangeText={setAudioFile}
-                            placeholder="Audio File"
-                        />
-                        <Button
-                            title="Add"
-                            onPress={addAction}
-                            color="blue"
-                        />
-                        <Button
-                            title="Cancel"
-                            onPress={actionCancel}
-                            color="red"
-                        />
+                        {errors.photoName && <Text>This is required.</Text>}
+                        <View style={styles.inputContainer}>
+                            <Text>Photo File:</Text>
+                            <Button
+                                title={photoFileName ? photoFileName : "Pick Photo"}
+                                onPress={handlePickImage}
+                                color="blue"
+                            />
+                        </View>
+                        {categories.length > 0 ? (
+                            <Controller
+                                control={control}
+                                render={({field: {onChange, onBlur, value}}) => (
+                                    <Picker
+                                        selectedValue={value}
+                                        onValueChange={value => {
+                                            setCategoryId(value);
+                                            onChange(value);
+                                        }}
+                                    >
+                                        {categories.map((category, index) => (
+                                            <Picker.Item key={index} label={category.category_name}
+                                                         value={category.category_id}/>
+                                        ))}
+                                    </Picker>
+                                )}
+                                name="categoryId"
+                                defaultValue=""
+                            />
+                        ) : null}
+                        <View style={styles.inputContainer}>
+                            <Text>Audio File:</Text>
+                            <Button
+                                title={audioFileName ? audioFileName :"Pick Audio"}
+                                onPress={pickAudioFile}
+                                color="blue"
+                            />
+                        </View>
+                        <View style={styles.buttonContainer}>
+                            <Button
+                                title="Add"
+                                onPress={handleSubmit(handleAdd)}
+                                color="blue"
+                            />
+                            <Button
+                                title="Cancel"
+                                onPress={handleCancel}
+                                color="red"
+                            />
+                        </View>
                     </View>
                 </View>
             </Modal>
         </View>
     );
 }
+
 
 const styles = StyleSheet.create({
     container: {
@@ -157,10 +324,10 @@ const styles = StyleSheet.create({
         marginTop: 22
     },
     modalView: {
-        margin: 20,
+        margin: 10, // Decrease margin to increase modal size
         backgroundColor: "#f0f0f0",
         borderRadius: 20,
-        padding: 35,
+        padding: 20, // Decrease padding to increase modal size
         alignItems: "center",
         shadowColor: "#000",
         shadowOffset: {
@@ -169,14 +336,30 @@ const styles = StyleSheet.create({
         },
         shadowOpacity: 0.25,
         shadowRadius: 4,
-        elevation: 5
+        elevation: 5,
+        width: '90%', // Set width to 90% of device width
+        height: '80%', // Set height to 80% of device height
+    },
+    buttonContainer: {
+        flexDirection: 'row', // Arrange buttons side by side
+        justifyContent: 'center', // Center buttons horizontally
+        width: '100%', // Use full width of the container
+        marginTop: 20, // Add some margin at the top
+        marginBottom: 10, // Add some margin at the bottom
+    },
+
+    inputContainer: {
+        flexDirection: 'row', // Arrange text and input field side by side
+        justifyContent: 'space-between', // Add space between text and input field
+        alignItems: 'center', // Vertically align items in the center
+        width: '100%', // Use full width of the container
+        marginBottom: 10, // Add some margin at the bottom
     },
     input: {
-        width: '80%',
+        width: '60%', // Reduce width to 60% to fit in the modal
         height: 40,
         borderColor: 'gray',
         borderWidth: 1,
-        marginBottom: 10,
         padding: 10,
     },
 });
