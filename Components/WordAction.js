@@ -1,5 +1,5 @@
 import React, {useState, useEffect} from 'react';
-import {View, Text, Button, StyleSheet, Dimensions, Modal, TextInput} from 'react-native';
+import {View, Text, Button, StyleSheet, Dimensions, Modal, TextInput, FlatList} from 'react-native';
 import {UserIdContext} from "./UserIdContext";
 import {Picker} from "@react-native-picker/picker";
 import {db} from '../Firebase/config';
@@ -10,6 +10,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import {useForm, Controller} from 'react-hook-form';
 import * as FileSystem from 'expo-file-system';
 import * as ImageManipulator from 'expo-image-manipulator';
+import {Audio} from 'expo-av';
 
 const {width, height} = Dimensions.get('window');
 
@@ -20,6 +21,7 @@ function WordAction({navigation}) {
     console.log('user id: ', userId);
     const [photoName, setPhotoName] = useState('');
     const [modalVisible, setModalVisible] = useState(false);
+    const [photos, setPhotos] = useState([]); // Initialize photos state as an empty array
     const [photo, setPhoto] = useState(null);
     const [categoryId, setCategoryId] = useState('');
     const [audioFile, setAudioFile] = useState(null);
@@ -40,52 +42,59 @@ function WordAction({navigation}) {
     };
 
     const handleAddAction = () => {
-        fetchCategories();
-        setModalVisible(true);
+        try {
+            fetchCategories();
+            setModalVisible(true);
+        } catch (error) {
+            console.error("Error in handleAddAction: ", error);
+        }
     };
 
     const handleAdd = async (data) => {
-        const {photoName, categoryId} = data;
+        try {
+            const {photoName} = data;
 
-        if (!photoName.trim()) {
-            setErrorMessage('Photo Name is required');
-            return;
+            if (!photoName.trim()) {
+                setErrorMessage('Photo Name is required');
+                return;
+            }
+
+            if (!photo) {
+                setErrorMessage('Photo is required');
+                return;
+            }
+
+            if (!audioFile) {
+                setErrorMessage('Audio File is required');
+                return;
+            }
+
+            const photoRef = ref(storage, `photos/${photoName}`);
+            const audioRef = ref(storage, `audio/${photoName}`);
+
+            await uploadBytes(photoRef, photo);
+            await uploadBytes(audioRef, audioFile);
+
+            const photoURL = await getDownloadURL(photoRef);
+            const audioURL = await getDownloadURL(audioRef);
+
+            const newPhoto = {
+                photo_name: photoName,
+                photo: photoURL,
+                user_id: userId,
+                category_id: categoryId || '', // If categoryId is not provided, use an empty string
+                audio_file: audioURL,
+            };
+
+            const photosRef = dbRef(db, 'photos');
+            const newPhotoRef = push(photosRef);
+            await set(newPhotoRef, newPhoto);
+
+            handleCancel();
+        } catch (error) {
+            console.error("Error in handleAdd: ", error);
         }
-
-        if (!photo) {
-            setErrorMessage('Photo is required');
-            return;
-        }
-
-        if (!audioFile) {
-            setErrorMessage('Audio File is required');
-            return;
-        }
-
-        const photoRef = ref(storage, `photos/${photoName}`);
-        const audioRef = ref(storage, `audio/${photoName}`);
-
-        await uploadBytes(photoRef, photo);
-        await uploadBytes(audioRef, audioFile);
-
-        const photoURL = await getDownloadURL(photoRef);
-        const audioURL = await getDownloadURL(audioRef);
-
-        const newPhoto = {
-            photo_name: photoName,
-            photo: photoURL,
-            user_id: userId,
-            category_id: categoryId || '',
-            audio_file: audioURL,
-        };
-
-        const photosRef = dbRef(db, 'photos');
-        const newPhotoRef = push(photosRef);
-        await set(newPhotoRef, newPhoto);
-
-        handleCancel();
     };
-
     const handleCancel = () => {
         setPhotoName('');
         setPhoto(null);
@@ -97,65 +106,73 @@ function WordAction({navigation}) {
         reset();
     };
 
-const handlePickImage = async () => {
-    try {
-        let result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
-            allowsEditing: false,
+    const handlePickImage = async () => {
+        try {
+            let result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: false,
+            });
+
+            console.log("Image picker result: ", result);
+
+            if (!result.cancelled && result.assets && result.assets[0].uri) {
+                const uri = result.assets[0].uri;
+                if (typeof uri === 'string') {
+                    const manipResult = await ImageManipulator.manipulateAsync(
+                        uri,
+                        [{resize: {width: 300}}],
+                        {compress: 0.7, format: ImageManipulator.SaveFormat.PNG}
+                    );
+                    setPhoto(manipResult.uri);
+                    // Extract the file name from the URI
+                    const fileName = manipResult.uri.split('/').pop();
+                    setPhotoFileName(fileName);
+
+                    const truncatedFileName = truncateName(fileName, 10);
+                    setPhotoFileName(truncatedFileName);
+
+                    // Log the selected photo
+                    console.log("Selected photo: ", manipResult);
+                }
+            }
+        } catch (error) {
+            console.error("Error picking image: ", error);
+        }
+    };
+
+    const pickAudioFile = async () => {
+        let result = await DocumentPicker.getDocumentAsync({
+            type: "audio/*",
         });
 
-        console.log("Image picker result: ", result);
-
         if (!result.cancelled && result.assets && result.assets[0].uri) {
-            const uri = result.assets[0].uri;
-            if (typeof uri === 'string') {
-                const manipResult = await ImageManipulator.manipulateAsync(
-                    uri,
-                    [{ resize: { width: 300 } }],
-                    { compress: 0.7, format: ImageManipulator.SaveFormat.PNG }
-                );
-                setPhoto(manipResult.uri);
-                // Extract the file name from the URI
-                const fileName = manipResult.uri.split('/').pop();
-                setPhotoFileName(fileName);
-
-                const truncatedFileName = truncateName(fileName, 10);
-                setPhotoFileName(truncatedFileName);
-
-                // Log the selected photo
-                console.log("Selected photo: ", manipResult);
+            let uri = result.assets[0].uri;
+            // Add default extension if none is found
+            if (!uri.endsWith('.mp3')) {
+                uri += '.mp3';
             }
+            console.log("Audio file is being selected: ", uri); // Log that an audio file is being selected
+            setAudioFile(uri);
+            // Extract the file name from the URI
+            const fileName = uri.split('/').pop();
+            const truncatedFileName = truncateName(fileName, 10);
+            setAudioFileName(truncatedFileName);
+        } else {
+            console.log("No audio file was selected or an error occurred. Result: ", result);
         }
-    } catch (error) {
-        console.error("Error picking image: ", error);
-    }
-};
-
-const pickAudioFile = async () => {
-    let result = await DocumentPicker.getDocumentAsync({
-        type: "audio/*",
-    });
-
-    if (!result.cancelled && result.assets && result.assets[0].uri) {
-        let uri = result.assets[0].uri;
-        // Add default extension if none is found
-        if (!uri.endsWith('.mp3')) {
-            uri += '.mp3';
+    };
+    const fetchPhotos = async () => {
+        console.log('userId: ', userId); // Log the userId
+        const photosRef = dbRef(db, 'photos');
+        const snapshot = await photosRef.orderByChild('user_id').equalTo(userId).once('value');
+        const photosData = snapshot.val();
+        console.log('photosData: ', photosData); // Log the photosData before filtering
+        if (photosData) {
+            const photosArray = Object.values(photosData).filter(photo => photo.category_id === '');
+            console.log('photosArray: ', photosArray); // Log the photosArray after filtering
+            setPhotos(photosArray);
         }
-        console.log("Audio file is being selected: ", uri); // Log that an audio file is being selected
-        setAudioFile(uri);
-        // Extract the file name from the URI
-        const fileName = uri.split('/').pop();
-        const truncatedFileName = truncateName(fileName, 10);
-        setAudioFileName(truncatedFileName);
-    } else {
-        console.log("No audio file was selected or an error occurred. Result: ", result);
-    }
-};
-
-    useEffect(() => {
-        fetchCategories();
-    }, []);
+    };
 
     function truncateName(name, maxLength) {
         if (name.length > maxLength) {
@@ -163,6 +180,22 @@ const pickAudioFile = async () => {
         }
         return name;
     }
+
+
+    const playAudio = async (audioFile) => {
+        const soundObject = new Audio.Sound();
+        try {
+            await soundObject.loadAsync({uri: audioFile});
+            await soundObject.playAsync();
+        } catch (error) {
+            console.error("Error playing audio: ", error);
+        }
+    };
+
+    useEffect(() => {
+        fetchCategories();
+        fetchPhotos();
+    }, []);
 
     return (
         <View style={styles.container}>
@@ -187,6 +220,15 @@ const pickAudioFile = async () => {
                         title="Add Action"
                         onPress={handleAddAction}
                         color="blue"
+                    />
+                    <FlatList
+                        data={photos}
+                        renderItem={({item}) => (
+                            <TouchableOpacity onPress={() => playAudio(item.audio_file)}>
+                                <Image source={{uri: item.photo}} style={styles.photo}/>
+                            </TouchableOpacity>
+                        )}
+                        keyExtractor={item => item.photo_name}
                     />
                 </View>
                 <View style={styles.subsection}>
@@ -259,7 +301,7 @@ const pickAudioFile = async () => {
                         <View style={styles.inputContainer}>
                             <Text>Audio File:</Text>
                             <Button
-                                title={audioFileName ? audioFileName :"Pick Audio"}
+                                title={audioFileName ? audioFileName : "Pick Audio"}
                                 onPress={pickAudioFile}
                                 color="blue"
                             />
