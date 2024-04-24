@@ -1,10 +1,21 @@
 import React, {useState, useEffect} from 'react';
-import {View, Text, Button, StyleSheet, Dimensions, Modal, TextInput, FlatList} from 'react-native';
+import {
+    View,
+    Text,
+    Button,
+    StyleSheet,
+    Dimensions,
+    Modal,
+    TextInput,
+    FlatList,
+    TouchableOpacity,
+    Image
+} from 'react-native';
 import {UserIdContext} from "./UserIdContext";
 import {Picker} from "@react-native-picker/picker";
 import {db} from '../Firebase/config';
 import {getStorage, ref, uploadBytes, getDownloadURL} from "firebase/storage";
-import {getDatabase, ref as dbRef, push, set} from "firebase/database";
+import {getDatabase, ref as dbRef, push, set, onValue, orderByChild, equalTo, query} from "firebase/database";
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import {useForm, Controller} from 'react-hook-form';
@@ -32,8 +43,9 @@ function WordAction({navigation}) {
     const {control, handleSubmit, formState: {errors}, setValue, reset} = useForm();
 
     const fetchCategories = async () => {
-        const categoriesRef = db.ref('categories');
-        const snapshot = await categoriesRef.orderByChild('user_id').equalTo(userId).once('value');
+        const db = getDatabase();
+        const categoriesRef = dbRef(db, 'categories');
+        const snapshot = await once(orderByChild(categoriesRef, 'user_id').equalTo(userId));
         const categoriesData = snapshot.val();
         if (categoriesData) {
             const categoriesArray = Object.values(categoriesData);
@@ -162,15 +174,25 @@ function WordAction({navigation}) {
         }
     };
     const fetchPhotos = async () => {
-        console.log('userId: ', userId); // Log the userId
+        console.log("fetching photos for user: ", userId);
+        const db = getDatabase();
         const photosRef = dbRef(db, 'photos');
-        const snapshot = await photosRef.orderByChild('user_id').equalTo(userId).once('value');
-        const photosData = snapshot.val();
-        console.log('photosData: ', photosData); // Log the photosData before filtering
-        if (photosData) {
-            const photosArray = Object.values(photosData).filter(photo => photo.category_id === '');
-            console.log('photosArray: ', photosArray); // Log the photosArray after filtering
-            setPhotos(photosArray);
+        console.log("Photos ref: ", photosRef);
+        try {
+            const photosQuery = query(photosRef, orderByChild('user_id'), equalTo(userId));
+            onValue(photosQuery, (snapshot) => {
+                console.log("Snapshot: ", snapshot);
+                console.log("Snapshot value: ", snapshot.val());
+                const photosData = snapshot.val();
+                console.log(photosData);
+                if (photosData) {
+                    const photosArray = Object.values(photosData);
+                    console.log("Photos array: ", photosArray)
+                    setPhotos(photosArray);
+                }
+            });
+        } catch (error) {
+            console.error("Error fetching photos: ", error);
         }
     };
 
@@ -184,6 +206,7 @@ function WordAction({navigation}) {
 
     const playAudio = async (audioFile) => {
         const soundObject = new Audio.Sound();
+        console.log("Audio file URL: ", audioFile);
         try {
             await soundObject.loadAsync({uri: audioFile});
             await soundObject.playAsync();
@@ -403,6 +426,10 @@ const styles = StyleSheet.create({
         borderColor: 'gray',
         borderWidth: 1,
         padding: 10,
+    },
+    photo: {
+        width: 100, // specify a width
+        height: 100, // specify a height
     },
 });
 
