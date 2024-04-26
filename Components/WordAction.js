@@ -15,13 +15,14 @@ import {UserIdContext} from "./UserIdContext";
 import {Picker} from "@react-native-picker/picker";
 import {db} from '../Firebase/config';
 import {getStorage, ref, uploadBytes, getDownloadURL} from "firebase/storage";
-import {getDatabase, ref as dbRef, push, set, onValue, orderByChild, equalTo, query} from "firebase/database";
+import {getDatabase, ref as dbRef, push, set, onValue, orderByChild, equalTo, query, once} from "firebase/database";
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import {useForm, Controller} from 'react-hook-form';
 import * as FileSystem from 'expo-file-system';
 import * as ImageManipulator from 'expo-image-manipulator';
 import {Audio} from 'expo-av';
+import * as MediaLibrary from 'expo-media-library';
 
 const {width, height} = Dimensions.get('window');
 
@@ -41,6 +42,11 @@ function WordAction({navigation}) {
     const [photoFileName, setPhotoFileName] = useState('Pick Photo');
     const [audioFileName, setAudioFileName] = useState('Pick Audio');
     const {control, handleSubmit, formState: {errors}, setValue, reset} = useForm();
+
+    useEffect(() => {
+        fetchCategories();
+        fetchPhotos();
+    }, []);
 
     const fetchCategories = async () => {
         const db = getDatabase();
@@ -62,51 +68,74 @@ function WordAction({navigation}) {
         }
     };
 
-    const handleAdd = async (data) => {
-        try {
-            const {photoName} = data;
+   const handleAdd = async (data) => {
+    try {
+        const {photoName} = data;
 
-            if (!photoName.trim()) {
-                setErrorMessage('Photo Name is required');
-                return;
-            }
-
-            if (!photo) {
-                setErrorMessage('Photo is required');
-                return;
-            }
-
-            if (!audioFile) {
-                setErrorMessage('Audio File is required');
-                return;
-            }
-
-            const photoRef = ref(storage, `photos/${photoName}`);
-            const audioRef = ref(storage, `audio/${photoName}`);
-
-            await uploadBytes(photoRef, photo);
-            await uploadBytes(audioRef, audioFile);
-
-            const photoURL = await getDownloadURL(photoRef);
-            const audioURL = await getDownloadURL(audioRef);
-
-            const newPhoto = {
-                photo_name: photoName,
-                photo: photoURL,
-                user_id: userId,
-                category_id: categoryId || '', // If categoryId is not provided, use an empty string
-                audio_file: audioURL,
-            };
-
-            const photosRef = dbRef(db, 'photos');
-            const newPhotoRef = push(photosRef);
-            await set(newPhotoRef, newPhoto);
-
-            handleCancel();
-        } catch (error) {
-            console.error("Error in handleAdd: ", error);
+        if (!photoName.trim()) {
+            setErrorMessage('Photo Name is required');
+            return;
         }
-    };
+
+        if (!photo) {
+            setErrorMessage('Photo is required');
+            return;
+        }
+
+        if (!audioFile) {
+            setErrorMessage('Audio File is required');
+            return;
+        }
+
+        const photoFileExtension = photo.split('.').pop().toLowerCase();
+        if (photoFileExtension !== 'png' && photoFileExtension !== 'jpg') {
+            setErrorMessage('Photo must be in PNG or JPG format');
+            return;
+        }
+
+        const photoRef = ref(storage, `photos/${photoName}`);
+        const audioRef = ref(storage, `audio/${photoName}`);
+
+        const photoSnapshot = await uploadBytes(photoRef, photo);
+        const audioSnapshot = await uploadBytes(audioRef, audioFile);
+
+        // Check if the files were uploaded successfully
+        if (!photoSnapshot || !audioSnapshot) {
+            setErrorMessage('Error uploading files to Firebase Storage');
+            return;
+        }
+
+        const photoURL = await getDownloadURL(photoRef);
+        const audioURL = await getDownloadURL(audioRef);
+
+        // Log the URLs to the console
+        console.log("Photo URL: ", photoURL);
+        console.log("Audio URL: ", audioURL);
+
+
+        // Check if the URLs are valid
+        if (!photoURL || !audioURL) {
+            setErrorMessage('Error getting download URLs');
+            return;
+        }
+
+        const newPhoto = {
+            photo_name: photoName,
+            photo: photoURL,
+            user_id: userId,
+            category_id: categoryId || '', // If categoryId is not provided, use an empty string
+            audio_file: audioURL,
+        };
+
+        const photosRef = dbRef(db, 'photos');
+        const newPhotoRef = push(photosRef);
+        await set(newPhotoRef, newPhoto);
+
+        handleCancel();
+    } catch (error) {
+        console.error("Error in handleAdd: ", error);
+    }
+};
     const handleCancel = () => {
         setPhotoName('');
         setPhoto(null);
@@ -129,46 +158,46 @@ function WordAction({navigation}) {
 
             if (!result.cancelled && result.assets && result.assets[0].uri) {
                 const uri = result.assets[0].uri;
-                if (typeof uri === 'string') {
+                const fileName = result.assets[0].fileName;
+                const mimeType = result.assets[0].mimeType;
+
+                if (mimeType === 'image/png' || mimeType === 'image/jpeg') {
                     const manipResult = await ImageManipulator.manipulateAsync(
                         uri,
                         [{resize: {width: 300}}],
                         {compress: 0.7, format: ImageManipulator.SaveFormat.PNG}
                     );
                     setPhoto(manipResult.uri);
-                    // Extract the file name from the URI
-                    const fileName = manipResult.uri.split('/').pop();
                     setPhotoFileName(fileName);
-
-                    const truncatedFileName = truncateName(fileName, 10);
-                    setPhotoFileName(truncatedFileName);
 
                     // Log the selected photo
                     console.log("Selected photo: ", manipResult);
+                } else {
+                    setErrorMessage('Photo must be in PNG or JPG format');
                 }
             }
         } catch (error) {
             console.error("Error picking image: ", error);
         }
     };
-
     const pickAudioFile = async () => {
         let result = await DocumentPicker.getDocumentAsync({
             type: "audio/*",
         });
+        console.log("Audio file picker result: ", result);
 
         if (!result.cancelled && result.assets && result.assets[0].uri) {
             let uri = result.assets[0].uri;
-            // Add default extension if none is found
-            if (!uri.endsWith('.mp3')) {
+            //Add default extension if none is found
+            if (!uri.endsWith('.mp3' || '.wav')) {
                 uri += '.mp3';
             }
             console.log("Audio file is being selected: ", uri); // Log that an audio file is being selected
             setAudioFile(uri);
             // Extract the file name from the URI
             const fileName = uri.split('/').pop();
-            const truncatedFileName = truncateName(fileName, 10);
-            setAudioFileName(truncatedFileName);
+
+            setAudioFileName(fileName);
         } else {
             console.log("No audio file was selected or an error occurred. Result: ", result);
         }
@@ -207,6 +236,7 @@ function WordAction({navigation}) {
     const playAudio = async (audioFile) => {
         const soundObject = new Audio.Sound();
         console.log("Audio file URL: ", audioFile);
+
         try {
             await soundObject.loadAsync({uri: audioFile});
             await soundObject.playAsync();
@@ -214,11 +244,6 @@ function WordAction({navigation}) {
             console.error("Error playing audio: ", error);
         }
     };
-
-    useEffect(() => {
-        fetchCategories();
-        fetchPhotos();
-    }, []);
 
     return (
         <View style={styles.container}>
@@ -430,6 +455,7 @@ const styles = StyleSheet.create({
     photo: {
         width: 100, // specify a width
         height: 100, // specify a height
+        backgroundColor: 'gray', // add a gray background
     },
 });
 
