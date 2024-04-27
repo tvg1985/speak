@@ -5,6 +5,7 @@ import { db } from '../Firebase/config';
 import { ref, get } from "firebase/database";
 import * as Crypto from 'expo-crypto';
 import {UserIdContext} from "./UserIdContext";
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 
 
 
@@ -63,7 +64,14 @@ function Login({ navigation }) {
     });
 };
     return (
-        <View style={styles.container}>
+        <KeyboardAwareScrollView
+            resetScrollToCoords={{ x: 0, y: 0 }}
+            extraHeight={220}
+            // extraScrollHeight={140}
+            keyboardOpeningTime={200}
+            contentContainerStyle={styles.container}
+            scrollEnabled={true}
+        >
             <Image
                 source={require('../assets/unlocklogo.jpg')}
                 style={styles.image}
@@ -102,7 +110,7 @@ function Login({ navigation }) {
                 />
             </View>
             <StatusBar style="auto" />
-        </View>
+        </KeyboardAwareScrollView>
     );
 }
 
