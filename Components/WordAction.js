@@ -64,6 +64,9 @@ function WordAction({navigation}) {
     const [categoryPhoto, setCategoryPhoto] = useState(null);
     const [categoryPhotoFileName, setCategoryPhotoFileName] = useState("Pick Photo");
     const [categoryPhotoMetaData, setCategoryPhotoMetaData] = useState(null);
+    const [showCategoryModal, setShowCategoryModal] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const [selectedCategory, setSelectedCategory] = useState("");
     const {
         control,
         handleSubmit,
@@ -73,22 +76,27 @@ function WordAction({navigation}) {
     } = useForm();
 
     useEffect(() => {
+        console.log(categories)
         fetchPhotos();
         fetchCategories();
     }, []);
 
-    const fetchCategories = () => {
+    const fetchCategories = async () => {
         console.log("fetching categories for user: ", userId);
         const db = getDatabase();
         const categoriesRef = dbRef(db, "categories");
-        const categoriesQuery = query(categoriesRef, orderByChild("user_id"), equalTo(userId));
-        onValue(categoriesQuery, (snapshot) => {
-            const categoriesData = snapshot.val();
-            if (categoriesData) {
-                const categoriesArray = Object.values(categoriesData);
+        try {
+            const categoriesQuery = query(categoriesRef, orderByChild("user_id"), equalTo(userId));
+            const snapshot = await get(categoriesQuery);
+            if (snapshot.exists()) {
+                const categoriesData = snapshot.val();
+                const categoriesArray = Object.entries(categoriesData).map(([id, data]) => ({id, ...data}));
                 setCategories(categoriesArray);
             }
-        });
+            setIsLoading(false); // Set isLoading to false after fetching the data
+        } catch (error) {
+            console.error("Error fetching categories: ", error);
+        }
     };
     const handleAddAction = () => {
         try {
@@ -159,7 +167,7 @@ function WordAction({navigation}) {
                 photo_name: photoName,
                 photo: photoURL,
                 user_id: userId,
-                category_id: categoryId || "", // If categoryId is not provided, use an empty string
+                category_id: selectedCategory || "", // If categoryId is not provided, use an empty string
                 audio_file: audioURL,
             };
 
@@ -181,6 +189,7 @@ function WordAction({navigation}) {
         setPhotoFileName("Pick Photo"); // Reset the photo file name
         setAudioFileName("Pick Audio"); // Reset the audio file name
         setModalVisible(false);
+        setShowCategoryModal(false);
         reset();
     };
 
@@ -285,7 +294,9 @@ function WordAction({navigation}) {
             onValue(photosQuery, (snapshot) => {
                 const photosData = snapshot.val();
                 if (photosData) {
-                    const photosArray = Object.entries(photosData).map(([id, data]) => ({id, ...data}));
+                    const photosArray = Object.entries(photosData)
+                        .map(([id, data]) => ({id, ...data}))
+                        .filter(photo => photo.category_id === ""); // Only include photos with an empty category_id
                     setPhotos(photosArray);
                 }
             });
@@ -414,6 +425,7 @@ function WordAction({navigation}) {
         setCategoryName("");
         setCategoryPhoto(null);
         setCategoryPhotoFileName("Pick Photo");
+        setSelectedCategory(""); // Reset selectedCategory
         setCategoryModalVisible(false);
     };
 
@@ -493,6 +505,10 @@ function WordAction({navigation}) {
                             console.log('category:', item.category_photo); // Log the category_photo
                             return (
                                 <TouchableOpacity onPress={() => {
+                                    navigation.navigate("CategoryScreen", {
+                                        userId: userId,
+                                        categoryName: item.category_name,
+                                    });
                                 }}>
                                     <Image source={{uri: item.category_photo}} style={styles.photo}/>
                                     <View style={styles.centeredText}>
@@ -579,30 +595,38 @@ function WordAction({navigation}) {
                                 color="blue"
                             />
                         </View>
-                        {categories.length > 0 ? (
+                        {categories.length > 0 && (
                             <Controller
                                 control={control}
                                 render={({field: {onChange, onBlur, value}}) => (
-                                    <Picker
-                                        selectedValue={value}
-                                        onValueChange={(value) => {
-                                            setCategoryId(value);
-                                            onChange(value);
-                                        }}
-                                    >
-                                        {categories.map((category, index) => (
-                                            <Picker.Item
-                                                key={index}
-                                                label={category.category_name}
-                                                value={category.category_id}
-                                            />
-                                        ))}
-                                    </Picker>
+                                    <View style={styles.inputContainer}>
+                                        <Text>Category:</Text>
+                                        <Picker
+                                            selectedValue={selectedCategory}
+                                            style={{height: 50, width: 250}}
+                                            mode={"dropdown"}
+                                            onValueChange={(itemValue) => {
+                                                console.log("Selected value: ", itemValue);
+                                                setSelectedCategory(itemValue);
+                                            }}
+                                        >
+                                            <Picker.Item label="None" value=""/>
+                                            {categories.map((category, index) => {
+                                                return (
+                                                    <Picker.Item
+                                                        label={category.category_name.toString()}
+                                                        value={category.category_name}
+                                                        key={index}
+                                                    />
+                                                );
+                                            })}
+                                        </Picker>
+                                    </View>
                                 )}
                                 name="categoryId"
                                 defaultValue=""
                             />
-                        ) : null}
+                        )}
                         <View style={styles.inputContainer}>
                             <Text>Audio File:</Text>
                             <Button
