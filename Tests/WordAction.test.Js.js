@@ -105,4 +105,41 @@ describe('WordAction', () => {
             });
         });
     });
+    describe('categories', () => {
+        it('fetches categories from the database', async () => {
+            const categories = [ /* your categories data here */ ];
+
+            // Mock the fetchCategories function
+            const fetchCategories = jest.fn(() => Promise.resolve(categories));
+            WordAction.fetchCategories = fetchCategories;
+
+            // Render the WordAction component
+            const { getByTestId } = render(<WordAction />);
+
+            // Wait for the categories to be fetched
+            await waitFor(() => expect(fetchCategories).toHaveBeenCalled());
+
+            // Check if the categories state is updated correctly
+            const categoriesState = getByTestId('categoriesState'); // Assuming you have testID='categoriesState' on your categories state
+            expect(categoriesState).toEqual(categories);
+        });
+
+        it('renders categories correctly', () => {
+            const categories = ['1', '2', '3'];
+
+            // Render the WordAction component with the categories state
+            const { getByTestId } = render(<WordAction categories={categories} />);
+
+            // Check if the FlatList contains the correct number of category items
+            const categoryItems = getByTestId('categoryItems'); // Assuming you have testID='categoryItems' on your category items
+            expect(categoryItems.length).toEqual(categories.length);
+
+            // Check if each category item contains the correct data
+            categories.forEach((category, index) => {
+                const categoryItem = categoryItems[index];
+                expect(categoryItem).toHaveTextContent(category.category_name);
+                expect(categoryItem).toHaveProp('source', { uri: category.category_photo });
+            });
+        });
+    });
 });

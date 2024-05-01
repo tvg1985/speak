@@ -59,6 +59,11 @@ function WordAction({navigation}) {
     const [audioFileName, setAudioFileName] = useState("Pick Audio");
     const [deleteModalVisible, setDeleteModalVisible] = useState(false);
     const [photoToDelete, setPhotoToDelete] = useState(null);
+    const [categoryModalVisible, setCategoryModalVisible] = useState(false);
+    const [categoryName, setCategoryName] = useState("");
+    const [categoryPhoto, setCategoryPhoto] = useState(null);
+    const [categoryPhotoFileName, setCategoryPhotoFileName] = useState("Pick Photo");
+    const [categoryPhotoMetaData, setCategoryPhotoMetaData] = useState(null);
     const {
         control,
         handleSubmit,
@@ -68,23 +73,23 @@ function WordAction({navigation}) {
     } = useForm();
 
     useEffect(() => {
-        fetchCategories();
         fetchPhotos();
+        fetchCategories();
     }, []);
 
-    const fetchCategories = async () => {
+    const fetchCategories = () => {
+        console.log("fetching categories for user: ", userId);
         const db = getDatabase();
         const categoriesRef = dbRef(db, "categories");
-        const snapshot = await once(
-            orderByChild(categoriesRef, "user_id").equalTo(userId),
-        );
-        const categoriesData = snapshot.val();
-        if (categoriesData) {
-            const categoriesArray = Object.values(categoriesData);
-            setCategories(categoriesArray);
-        }
+        const categoriesQuery = query(categoriesRef, orderByChild("user_id"), equalTo(userId));
+        onValue(categoriesQuery, (snapshot) => {
+            const categoriesData = snapshot.val();
+            if (categoriesData) {
+                const categoriesArray = Object.values(categoriesData);
+                setCategories(categoriesArray);
+            }
+        });
     };
-
     const handleAddAction = () => {
         try {
             fetchCategories();
@@ -292,22 +297,19 @@ function WordAction({navigation}) {
 
     let soundObject = null;
     const playAudio = async (audioFile) => {
-
-        // If a sound is currently playing, for sanity's sake, stop it.
-        // one noise at a time, please.
+        // If a sound is currently playing, stop it.
         if (soundObject) {
             await soundObject.stopAsync();
             soundObject = null;
-        } else {
-            soundObject = new Audio.Sound();
-            console.log("Audio file URL: ", audioFile);
+        }
 
-            try {
-                await soundObject.loadAsync({uri: audioFile});
-                await soundObject.playAsync();
-            } catch (error) {
-                console.error("Error playing audio: ", error);
-            }
+        // Start playing the audio
+        soundObject = new Audio.Sound();
+        try {
+            await soundObject.loadAsync({uri: audioFile});
+            await soundObject.playAsync();
+        } catch (error) {
+            console.error("Error playing audio: ", error);
         }
     };
     const deletePhoto = async () => {
@@ -352,6 +354,97 @@ function WordAction({navigation}) {
         setDeleteModalVisible(true);
     };
 
+
+    const handleAddCategory = () => {
+        try {
+            setCategoryModalVisible(true);
+        } catch (error) {
+            console.error("Error in handleAddCategory: ", error);
+        }
+    };
+
+    const handleAddCategoryAction = async () => {
+        try {
+            if (!categoryName.trim()) {
+                setErrorMessage("Category Name is required");
+                return;
+            }
+
+            let categoryPhotoRef;
+            let categoryPhotoSnapshot = null;
+            let categoryPhotoURL;
+            if (!categoryPhoto) {
+                setErrorMessage("Category Photo is required");
+                return;
+            } else {
+                const categoryPhotoBlob = await getBlobFromUri(categoryPhoto);
+
+                categoryPhotoRef = ref(storage, `categoryPhotos/${categoryPhotoFileName}`);
+                categoryPhotoSnapshot = await uploadBytes(categoryPhotoRef, categoryPhotoBlob, photoMetaData);
+                categoryPhotoURL = await getDownloadURL(categoryPhotoSnapshot.ref);
+            }
+
+            if (!categoryPhotoSnapshot) {
+                setErrorMessage("Error uploading category photo to Firebase Storage");
+                return;
+            }
+
+            if (!categoryPhotoURL) {
+                setErrorMessage("Error getting download URL");
+                return;
+            }
+
+            const newCategory = {
+                category_name: categoryName,
+                category_photo: categoryPhotoURL,
+                user_id: userId,
+            };
+
+            const categoriesRef = dbRef(db, "categories");
+            const newCategoryRef = push(categoriesRef);
+            await set(newCategoryRef, newCategory);
+
+            handleCancelCategory();
+        } catch (error) {
+            console.error("Error in handleAddCategoryAction: ", error);
+        }
+    };
+
+    const handleCancelCategory = () => {
+        setCategoryName("");
+        setCategoryPhoto(null);
+        setCategoryPhotoFileName("Pick Photo");
+        setCategoryModalVisible(false);
+    };
+
+    const handlePickCategoryImage = async () => {
+        try {
+            let result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: false,
+            });
+
+            if (!result.canceled && result.assets && result.assets[0].uri) {
+                const uri = result.assets[0].uri;
+                const fileName = result.assets[0].fileName;
+                const mimeType = result.assets[0].mimeType;
+
+                if (mimeType === "image/png" || mimeType === "image/jpeg") {
+                    let metadata = {
+                        contentType: mimeType,
+                    };
+                    setCategoryPhoto(uri);
+                    setCategoryPhotoFileName(fileName);
+                } else {
+                    setErrorMessage("Photo must be in PNG or JPG format");
+                }
+            }
+        } catch (error) {
+            console.error("Error picking image: ", error);
+        }
+    };
+
+
     return (
         <View style={styles.container}>
             <View style={styles.topButtons}>
@@ -391,13 +484,64 @@ function WordAction({navigation}) {
                     <Text style={styles.header}>Categories:</Text>
                     <Button
                         title="Add"
-                        onPress={() => {
-                            // add function here
-                        }}
+                        onPress={handleAddCategory}
                         color="blue"
+                    />
+                    <FlatList
+                        data={categories}
+                        renderItem={({item, index}) => {
+                            console.log('category:', item.category_photo); // Log the category_photo
+                            return (
+                                <TouchableOpacity onPress={() => {
+                                }}>
+                                    <Image source={{uri: item.category_photo}} style={styles.photo}/>
+                                    <View style={styles.centeredText}>
+                                        <Text>{item.category_name}</Text>
+                                    </View>
+                                </TouchableOpacity>
+                            );
+                        }}
+                        keyExtractor={(item) => item.category_name}
+                        numColumns={2}
                     />
                 </View>
             </View>
+            <Modal
+                animationType="slide"
+                transparent={true}
+                visible={categoryModalVisible}
+                onRequestClose={handleCancelCategory}
+            >
+                <View style={styles.centeredView}>
+                    <View style={styles.modalView}>
+                        {errorMessage ? (
+                            <Text style={{color: "red"}}>{errorMessage}</Text>
+                        ) : null}
+                        <TextInput
+                            onChangeText={setCategoryName}
+                            value={categoryName}
+                            placeholder="Category Name"
+                        />
+                        <View style={styles.inputContainer}>
+                            <Text>Category Photo:</Text>
+                            <Button
+                                title={categoryPhotoFileName ? categoryPhotoFileName : "Pick Photo"}
+                                onPress={handlePickCategoryImage}
+                                color="blue"
+                            />
+                        </View>
+                        <View style={styles.buttonContainer}>
+                            <Button
+                                title="Add"
+                                onPress={handleAddCategoryAction}
+                                color="blue"
+                            />
+                            <Button title="Cancel" onPress={handleCancelCategory} color="red"/>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+
             <Modal
                 animationType="slide"
                 transparent={true}
