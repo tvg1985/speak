@@ -255,7 +255,7 @@ function WordAction({navigation}) {
                 };
                 setAudioFile(uri);
                 const fileName = uri.split("/").pop();
-                setAudioFileName(fileName);
+                setAudioFileName(result.assets[0].name)
                 setAudioMetaData(metadata);
             }
         } else {
