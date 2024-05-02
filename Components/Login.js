@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import {Button, StyleSheet, Text, View, Image, TextInput} from 'react-native';
+import {Dimensions, Button, StyleSheet, Text, View, Image, TextInput} from 'react-native';
 import { db } from '../Firebase/config';
 import { ref, get } from "firebase/database";
 import * as Crypto from 'expo-crypto';
 import {UserIdContext} from "./UserIdContext";
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 
-
+const {width, height} = Dimensions.get("window");
 
 function Login({ navigation }) {
     const {setUserId} = React.useContext(UserIdContext);

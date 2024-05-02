@@ -1,9 +1,11 @@
 import React, {useState, useEffect} from 'react';
-import {Button, StyleSheet, Text, View, TextInput, Alert} from 'react-native';
+import {Dimensions, Button, StyleSheet, Text, View, TextInput, Alert} from 'react-native';
 import {db} from '../Firebase/config';
 import {ref, set, get} from "firebase/database";
 import * as Crypto from 'expo-crypto';
 import {v4 as uuid} from 'uuid';
+
+const {width, height} = Dimensions.get("window");
 
 
 function Register({navigation}) {

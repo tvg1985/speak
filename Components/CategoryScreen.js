@@ -1,8 +1,10 @@
 import React, {useEffect, useState} from 'react';
-import {View, FlatList, Image, TouchableOpacity, Text, Button, StyleSheet, Modal} from 'react-native';
+import {Dimensions,View, FlatList, Image, TouchableOpacity, Text, Button, StyleSheet, Modal} from 'react-native';
 import {getDatabase, ref as dbRef, onValue, query, orderByChild, equalTo, get, remove} from 'firebase/database';
 import {useNavigation} from '@react-navigation/native';
 import {Audio} from "expo-av";
+const {width, height} = Dimensions.get("window");
+
 
 function CategoryScreen({route}) {
     const {userId, categoryName} = route.params;
@@ -140,6 +142,13 @@ function CategoryScreen({route}) {
                     </View>
                 </Modal>
             </View>
+            <View style={styles.addActionButtonContainer}>
+                <Button
+                    title="Add Action"
+                    color="blue"
+                    onPress={() => console.log('Add Action button pressed')}
+                />
+            </View>
         </View>
     );
 }
@@ -201,6 +210,11 @@ const styles = StyleSheet.create({
         color: 'gray',
         fontSize: 18,
         marginTop: 20,
+    },
+    addActionButtonContainer: {
+        marginTop: 20,
+        width: '30%',
+        alignSelf: 'center',
     },
 });
 export default CategoryScreen;

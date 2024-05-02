@@ -1,8 +1,10 @@
 import React, {useState} from 'react';
-import {Button, StyleSheet, Text, View, TextInput} from 'react-native';
+import {Dimensions, Button, StyleSheet, Text, View, TextInput} from 'react-native';
 import {get, ref, set, update} from 'firebase/database';
 import {db} from '../Firebase/config';
 import * as Crypto from 'expo-crypto';
+
+const {width, height} = Dimensions.get("window");
 
 function ResetPassword({route, navigation}) {
     const [userName, setUserName] = useState('');

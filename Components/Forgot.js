@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
-import { Button, StyleSheet, Text, View, TextInput } from 'react-native';
+import { Dimensions, Button, StyleSheet, Text, View, TextInput } from 'react-native';
 import { get, ref,child } from 'firebase/database';
 import { db } from '../Firebase/config';
+
+// Get the screen dimensions
+const {width, height} = Dimensions.get("window");
 
 function ForgotPassword({ navigation }) {
     const [email, setEmail] = useState('');
