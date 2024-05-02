@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import {View, FlatList, Image, TouchableOpacity, Text, Button, StyleSheet} from 'react-native';
+import {View, FlatList, Image, TouchableOpacity, Text, Button, StyleSheet, Modal} from 'react-native';
 import {getDatabase, ref as dbRef, onValue, query, orderByChild, equalTo, get, remove} from 'firebase/database';
 import {useNavigation} from '@react-navigation/native';
 import {Audio} from "expo-av";
@@ -8,6 +8,9 @@ function CategoryScreen({route}) {
     const {userId, categoryName} = route.params;
     const [photos, setPhotos] = useState([]);
     const navigation = useNavigation();
+    const [modalVisible, setModalVisible] = useState(false);
+    const [selectedPhoto, setSelectedPhoto] = useState(null);
+
 
     useEffect(() => {
         fetchPhotos();
@@ -49,47 +52,33 @@ function CategoryScreen({route}) {
             console.error("Error playing audio: ", error);
         }
     };
-    const deletePhoto = async () => {
-        console.log("photoToDelete in deletePhoto: ", photoToDelete); // Add this line
+    const handleLongPressPhoto = (photo) => {
+        setSelectedPhoto(photo);
+        setModalVisible(true);
+    };
+
+    const handleDeletePhoto = async () => {
+        console.log("handleDeletePhoto called"); // Debugging line
+        console.log("selectedPhoto.id: ", selectedPhoto.id); // Debugging line
+
+        const db = getDatabase();
+        const photoRef = dbRef(db, `photos/${selectedPhoto.id}`);
         try {
-            const db = getDatabase();
-            const photoName = photoToDelete.photo_name;
-            const photosRef = dbRef(db, "photos");
-
-            // Query the Firebase Realtime Database for a photo with the same name and user id
-            const photosQuery = query(
-                photosRef,
-                orderByChild("photo_name"),
-                equalTo(photoName),
-            );
-
-            // Get the snapshot of the query
-            const snapshot = await get(photosQuery);
-
-            // If a photo is found, delete it from the Firebase Realtime Database
-            if (snapshot.exists()) {
-                snapshot.forEach((childSnapshot) => {
-                    if (childSnapshot.val().user_id === userId) {
-                        const photoDbRef = dbRef(db, `photos/${childSnapshot.key}`);
-                        remove(photoDbRef);
-                    }
-                });
-
-                // Close the modal and reset photoToDelete
-                setDeleteModalVisible(false);
-                setPhotoToDelete(null);
-            } else {
-                console.log(`No photo found with name: ${photoName}`);
-            }
+            await remove(photoRef);
         } catch (error) {
             console.error("Error deleting photo: ", error);
+            return;
         }
+
+        // Fetch photos again after a photo is deleted
+        fetchPhotos();
+        handleCancelDelete();
     };
-    const handleLongPress = (item) => {
-        console.log("photoToDelete: ", item); // Add this line
-        setPhotoToDelete(item);
-        setDeleteModalVisible(true);
+    const handleCancelDelete = () => {
+        setSelectedPhoto(null);
+        setModalVisible(false);
     };
+
     return (
         <View style={styles.container}>
             <View style={styles.buttonContainer}>
@@ -106,19 +95,50 @@ function CategoryScreen({route}) {
             </View>
             <Text style={styles.categoryTitle}>{categoryName}</Text>
             <View style={styles.subsection}>
-                <FlatList
-                    data={photos}
-                    renderItem={({item, index}) => (
-                        <TouchableOpacity onPress={() => playAudio(item.audio_file)}>
-                            <Image source={{uri: item.photo}} style={{width: 100, height: 100}}/>
-                            <View>
-                                <Text style={styles.centeredText}>{item.photo_name}</Text>
+                {photos.length === 0 ? (
+                    <Text style={styles.noPhotosText}>There are no actions in this category</Text>
+                ) : (
+                    <FlatList
+                        data={photos}
+                        renderItem={({item, index}) => (
+                            <TouchableOpacity
+                                onPress={() => playAudio(item.audio_file)}
+                                onLongPress={() => handleLongPressPhoto(item)}
+                            >
+                                <Image source={{uri: item.photo}} style={{width: 100, height: 100}}/>
+                                <View>
+                                    <Text style={styles.centeredText}>{item.photo_name}</Text>
+                                </View>
+                            </TouchableOpacity>
+                        )}
+                        keyExtractor={(item) => item.photo_name}
+                        numColumns={2}
+                    />
+                )}
+                <Modal
+                    animationType="slide"
+                    transparent={true}
+                    visible={modalVisible}
+                >
+                    <View style={styles.centeredView}>
+                        <View style={styles.modalView}>
+                            <Text style={styles.modalText}>Are you sure you want to delete this photo?</Text>
+
+                            <View style={styles.buttonContainer}>
+                                <Button
+                                    title="Yes"
+                                    onPress={handleDeletePhoto}
+                                    color="red"
+                                />
+                                <Button
+                                    title="No"
+                                    onPress={handleCancelDelete}
+                                    color="blue"
+                                />
                             </View>
-                        </TouchableOpacity>
-                    )}
-                    keyExtractor={(item) => item.photo_name}
-                    numColumns={2}
-                />
+                        </View>
+                    </View>
+                </Modal>
             </View>
         </View>
     );
@@ -149,6 +169,38 @@ const styles = StyleSheet.create({
         borderRadius: 10,
         padding: 10,
         margin: 10,
+    },
+
+    centeredView: {
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+        marginTop: 22
+    },
+    modalView: {
+        margin: 20,
+        backgroundColor: "white",
+        borderRadius: 20,
+        padding: 35,
+        alignItems: "center",
+        shadowColor: "#000",
+        shadowOffset: {
+            width: 0,
+            height: 2
+        },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
+        elevation: 5
+    },
+    modalText: {
+        marginBottom: 15,
+        textAlign: "center"
+    },
+    noPhotosText: {
+        textAlign: 'center',
+        color: 'gray',
+        fontSize: 18,
+        marginTop: 20,
     },
 });
 export default CategoryScreen;
