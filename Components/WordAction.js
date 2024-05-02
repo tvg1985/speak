@@ -67,6 +67,9 @@ function WordAction({navigation}) {
     const [showCategoryModal, setShowCategoryModal] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedCategory, setSelectedCategory] = useState("");
+    const [categoryToDelete, setCategoryToDelete] = useState(null);
+    const [deleteCategoryModalVisible, setDeleteCategoryModalVisible] = useState(false);
+
     const {
         control,
         handleSubmit,
@@ -365,6 +368,11 @@ function WordAction({navigation}) {
         setDeleteModalVisible(true);
     };
 
+    const handleLongPressCategory = (item) => {
+        setCategoryToDelete(item);
+        setDeleteCategoryModalVisible(true);
+    };
+
 
     const handleAddCategory = () => {
         try {
@@ -390,9 +398,18 @@ function WordAction({navigation}) {
             } else {
                 const categoryPhotoBlob = await getBlobFromUri(categoryPhoto);
 
-                categoryPhotoRef = ref(storage, `categoryPhotos/${categoryPhotoFileName}`);
-                categoryPhotoSnapshot = await uploadBytes(categoryPhotoRef, categoryPhotoBlob, photoMetaData);
-                categoryPhotoURL = await getDownloadURL(categoryPhotoSnapshot.ref);
+                console.log('categoryPhoto:', categoryPhoto);
+                console.log('categoryPhotoBlob:', categoryPhotoBlob);
+                console.log('categoryPhotoBlob._data.name:', categoryPhotoBlob._data.name);
+
+                if (categoryPhotoBlob && categoryPhotoBlob._data && categoryPhotoBlob._data.name) {
+                    // Use categoryPhotoBlob._data.name instead of categoryPhotoBlob.path
+                    categoryPhotoRef = ref(storage, `categoryPhotos/${categoryPhotoBlob._data.name}`);
+                    categoryPhotoSnapshot = await uploadBytes(categoryPhotoRef, categoryPhotoBlob, photoMetaData);
+                    categoryPhotoURL = await getDownloadURL(categoryPhotoSnapshot.ref);
+                } else {
+                    console.log('categoryPhotoBlob or categoryPhotoBlob._data.name is undefined');
+                }
             }
 
             if (!categoryPhotoSnapshot) {
@@ -415,18 +432,21 @@ function WordAction({navigation}) {
             const newCategoryRef = push(categoriesRef);
             await set(newCategoryRef, newCategory);
 
+            // Fetch categories again after a new category is added
+            fetchCategories();
+
             handleCancelCategory();
         } catch (error) {
             console.error("Error in handleAddCategoryAction: ", error);
         }
     };
-
     const handleCancelCategory = () => {
         setCategoryName("");
         setCategoryPhoto(null);
         setCategoryPhotoFileName("Pick Photo");
         setSelectedCategory(""); // Reset selectedCategory
         setCategoryModalVisible(false);
+        setErrorMessage("")
     };
 
     const handlePickCategoryImage = async () => {
@@ -454,6 +474,38 @@ function WordAction({navigation}) {
         } catch (error) {
             console.error("Error picking image: ", error);
         }
+    };
+
+    const deleteCategory = async () => {
+        try {
+            const db = getDatabase();
+            const categoryRef = dbRef(db, `categories/${categoryToDelete.id}`);
+            await remove(categoryRef);
+
+            const photosRef = dbRef(db, "photos");
+            const photosQuery = query(
+                photosRef,
+                orderByChild("category_id"),
+                equalTo(categoryToDelete.category_name),
+            );
+            const snapshot = await get(photosQuery);
+            if (snapshot.exists()) {
+                snapshot.forEach((childSnapshot) => {
+                    const photoDbRef = dbRef(db, `photos/${childSnapshot.key}`);
+                    remove(photoDbRef);
+                });
+            }
+            fetchCategories();
+            setDeleteCategoryModalVisible(false);
+            setCategoryToDelete(null);
+        } catch (error) {
+            console.error("Error deleting category: ", error);
+        }
+    };
+
+    const handleCancelDeleteCategory = () => {
+        setDeleteCategoryModalVisible(false);
+        setCategoryToDelete(null);
     };
 
 
@@ -484,7 +536,7 @@ function WordAction({navigation}) {
                                               onLongPress={() => handleLongPress(item, index)}>
                                 <Image source={{uri: item.photo}} style={styles.photo}/>
                                 <View style={styles.centeredText}>
-                                    <Text>{item.photo_name}</Text>
+                                    <Text style={styles.name}>{item.photo_name}</Text>
                                 </View>
                             </TouchableOpacity>
                         )}
@@ -509,10 +561,11 @@ function WordAction({navigation}) {
                                         userId: userId,
                                         categoryName: item.category_name,
                                     });
-                                }}>
+                                }}
+                                                  onLongPress={() => handleLongPressCategory(item)}>
                                     <Image source={{uri: item.category_photo}} style={styles.photo}/>
                                     <View style={styles.centeredText}>
-                                        <Text>{item.category_name}</Text>
+                                        <Text style={styles.name}>{item.category_name}</Text>
                                     </View>
                                 </TouchableOpacity>
                             );
@@ -540,11 +593,13 @@ function WordAction({navigation}) {
                         />
                         <View style={styles.inputContainer}>
                             <Text>Category Photo:</Text>
-                            <Button
-                                title={categoryPhotoFileName ? categoryPhotoFileName : "Pick Photo"}
-                                onPress={handlePickCategoryImage}
-                                color="blue"
-                            />
+                            <View style={styles.fixedWidthButtonContainer}>
+                                <Button
+                                    title={categoryPhotoFileName ? categoryPhotoFileName : "Pick Photo"}
+                                    onPress={handlePickCategoryImage}
+                                    color="blue"
+                                />
+                            </View>
                         </View>
                         <View style={styles.buttonContainer}>
                             <Button
@@ -553,6 +608,22 @@ function WordAction({navigation}) {
                                 color="blue"
                             />
                             <Button title="Cancel" onPress={handleCancelCategory} color="red"/>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+            <Modal
+                animationType="slide"
+                transparent={true}
+                visible={deleteCategoryModalVisible}
+                onRequestClose={handleCancelDeleteCategory}
+            >
+                <View style={styles.centeredView}>
+                    <View style={styles.modalView}>
+                        <Text>Are you sure you want to delete this category and all its associated photos?</Text>
+                        <View style={styles.buttonContainer}>
+                            <Button title="Yes" onPress={deleteCategory} color="red"/>
+                            <Button title="No" onPress={handleCancelDeleteCategory} color="blue"/>
                         </View>
                     </View>
                 </View>
@@ -603,7 +674,7 @@ function WordAction({navigation}) {
                                         <Text>Category:</Text>
                                         <Picker
                                             selectedValue={selectedCategory}
-                                            style={{height: 50, width: 250}}
+                                            style={{height: 50, width: 125, paddingRight: 20}}
                                             mode={"dropdown"}
                                             onValueChange={(itemValue) => {
                                                 console.log("Selected value: ", itemValue);
@@ -629,11 +700,13 @@ function WordAction({navigation}) {
                         )}
                         <View style={styles.inputContainer}>
                             <Text>Audio File:</Text>
-                            <Button
-                                title={audioFileName ? audioFileName : "Pick Audio"}
-                                onPress={handlePickAudioFile}
-                                color="blue"
-                            />
+                            <View style={styles.fixedWidthButtonContainer}>
+                                <Button
+                                    title={audioFileName ? audioFileName : "Pick Audio"}
+                                    onPress={handlePickAudioFile}
+                                    color="blue"
+                                />
+                            </View>
                         </View>
                         <View style={styles.buttonContainer}>
                             <Button
@@ -737,6 +810,10 @@ const styles = StyleSheet.create({
         width: "100%", // Use full width of the container
         marginBottom: 10, // Add some margin at the bottom
     },
+    fixedWidthButtonContainer: {
+        width: 100, // Set a fixed width for the button
+    },
+
     input: {
         width: "60%", // Reduce width to 60% to fit in the modal
         height: 40,
@@ -755,6 +832,10 @@ const styles = StyleSheet.create({
     centeredText: {
         alignItems: 'center',
         justifyContent: 'center',
+    },
+    name: {
+        textAlign: 'center',
+        fontWeight: 'bold',
     },
 });
 

@@ -1,12 +1,13 @@
-import React, { useEffect, useState } from 'react';
-import { View, FlatList, Image, TouchableOpacity, Text } from 'react-native';
+import React, {useEffect, useState} from 'react';
+import {View, FlatList, Image, TouchableOpacity, Text, Button, StyleSheet} from 'react-native';
 import {getDatabase, ref as dbRef, onValue, query, orderByChild, equalTo, get, remove} from 'firebase/database';
-import { playAudio } from './WordAction';
+import {useNavigation} from '@react-navigation/native';
 import {Audio} from "expo-av";
 
-function CategoryScreen({ route }) {
-    const { userId, categoryName } = route.params;
+function CategoryScreen({route}) {
+    const {userId, categoryName} = route.params;
     const [photos, setPhotos] = useState([]);
+    const navigation = useNavigation();
 
     useEffect(() => {
         fetchPhotos();
@@ -90,22 +91,64 @@ function CategoryScreen({ route }) {
         setDeleteModalVisible(true);
     };
     return (
-        <View>
-            <FlatList
-                data={photos}
-                renderItem={({item, index}) => (
-                    <TouchableOpacity onPress={() => playAudio(item.audio_file)}>
-                        <Image source={{uri: item.photo}} style={{width: 100, height: 100}}/>
-                        <View>
-                            <Text>{item.photo_name}</Text>
-                        </View>
-                    </TouchableOpacity>
-                )}
-                keyExtractor={(item) => item.photo_name}
-                numColumns={2}
-            />
+        <View style={styles.container}>
+            <View style={styles.buttonContainer}>
+                <Button
+                    title="Word Action"
+                    onPress={() => navigation.navigate('WordAction', {userId})}
+                    color="green"
+                />
+                <Button
+                    title="Settings"
+                    onPress={() => console.log('Settings button pressed')}
+                    color="green"
+                />
+            </View>
+            <Text style={styles.categoryTitle}>{categoryName}</Text>
+            <View style={styles.subsection}>
+                <FlatList
+                    data={photos}
+                    renderItem={({item, index}) => (
+                        <TouchableOpacity onPress={() => playAudio(item.audio_file)}>
+                            <Image source={{uri: item.photo}} style={{width: 100, height: 100}}/>
+                            <View>
+                                <Text style={styles.centeredText}>{item.photo_name}</Text>
+                            </View>
+                        </TouchableOpacity>
+                    )}
+                    keyExtractor={(item) => item.photo_name}
+                    numColumns={2}
+                />
+            </View>
         </View>
     );
 }
 
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+    },
+    centeredText: {
+        textAlign: 'center',
+        fontWeight: 'bold',
+    },
+    buttonContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        padding: 10,
+    },
+    categoryTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        textAlign: 'center',
+        marginVertical: 10,
+    },
+    subsection: {
+        borderColor: 'gray',
+        borderWidth: 1,
+        borderRadius: 10,
+        padding: 10,
+        margin: 10,
+    },
+});
 export default CategoryScreen;
