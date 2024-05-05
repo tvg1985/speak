@@ -87,7 +87,9 @@ function Register({navigation}) {
             // Create a reference to the 'users' node in the database
             const usersRef = ref(db, 'users/' + user_id);
 
-            get(usersRef).then(async (snapshot) => {
+            // Changes here
+            try {
+                const snapshot = await get(usersRef);
                 if (snapshot.exists()) {
                     console.log('User already exists');
                     // If user already exists, set error message and provide suggestions
@@ -124,9 +126,9 @@ function Register({navigation}) {
                         console.error('Error hashing password:', error);
                     }
                 }
-            }).catch((error) => {
+            } catch (error) {
                 console.error('Error getting user:', error);
-            });
+            }
         } else {
             console.log('Form is not valid');
         }
