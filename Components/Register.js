@@ -4,6 +4,9 @@ import {db} from '../Firebase/config';
 import {ref, set, get} from "firebase/database";
 import * as Crypto from 'expo-crypto';
 import {v4 as uuid} from 'uuid';
+import * as Random from 'expo-random';
+import CryptoJS from 'react-native-crypto-js';
+import {v4 as uuidv4} from 'uuid';
 
 const {width, height} = Dimensions.get("window");
 
@@ -69,51 +72,65 @@ function Register({navigation}) {
         return Object.keys(tempErrors).length === 0;
     };
 
-   const register = async () => {
-    if (validateForm()) {
-        const user_id = uuid();
+    const register = async () => {
+        console.log('register function called');
+        console.log('form:', form);
+        console.log('errors:', errors);
 
-        // Replace '.' with ',' in the email
-        const emailKey = form.email.replace(/\./g, ',');
+        if (validateForm()) {
+            console.log('Form is valid');
+            const user_id = uuidv4();
 
-        // Create a reference to the 'users' node in the database
-        const usersRef = ref(db, 'users/' + user_id);
+            // Replace '.' with ',' in the email
+            const emailKey = form.email.replace(/\./g, ',');
 
-        get(usersRef).then(async (snapshot) => {
-            if (snapshot.exists()) {
-                // If user already exists, set error message and provide suggestions
-                setErrors({
-                    user_name: 'Username already exists',
-                    suggestions: [
-                        form.user_name.toLowerCase() + '1',
-                        form.user_name.toLowerCase() + '2',
-                        form.user_name.toLowerCase() + '3',
-                    ],
-                });
-            } else {
-                // If user does not exist, create new user
-                const hashedPassword = await Crypto.digestStringAsync(
-                    Crypto.CryptoDigestAlgorithm.SHA256,
-                    form.password
-                );
-                set(usersRef, {
-                    user_name: form.user_name.toLowerCase(),
-                    password: hashedPassword,
-                    email: emailKey, // Store the modified email in the database
-                    role: form.role,
-                    parent_id: form.parent_id,
-                }).then(() => {
-                    window.alert("You are successfully registered");
-                    navigation.navigate('Login');
-                }).catch((error) => {
-                    console.error('Error:', error);
-                });
-            }
-        }).catch((error) => {
-            console.error('Error:', error);
-        });
+            // Create a reference to the 'users' node in the database
+            const usersRef = ref(db, 'users/' + user_id);
+
+            get(usersRef).then(async (snapshot) => {
+                if (snapshot.exists()) {
+                    console.log('User already exists');
+                    // If user already exists, set error message and provide suggestions
+                    setErrors({
+                        user_name: 'Username already exists',
+                        suggestions: [
+                            form.user_name.toLowerCase() + '1',
+                            form.user_name.toLowerCase() + '2',
+                            form.user_name.toLowerCase() + '3',
+                        ],
+                    });
+                } else {
+                    console.log('User does not exist, creating new user');
+                    // If user does not exist, create new user
+                    try {
+                        const hashedPassword = await CryptoJS.SHA256(form.password).toString();
+                        console.log('Hashed password:', hashedPassword);
+                        console.log('Starting Firebase operation');
+                        set(usersRef, {
+                            user_name: form.user_name.toLowerCase(),
+                            password: hashedPassword,
+                            email: emailKey, // Store the modified email in the database
+                            role: form.role,
+                            parent_id: form.parent_id,
+                        }).then(() => {
+                            console.log('User created successfully');
+                            Alert.alert("You are successfully registered");
+                            console.log('Navigating to Login');
+                            navigation.navigate('Login');
+                        }).catch((error) => {
+                            console.error('Error creating user:', error);
+                        });
+                    } catch (error) {
+                        console.error('Error hashing password:', error);
+                    }
+                }
+            }).catch((error) => {
+                console.error('Error getting user:', error);
+            });
+        } else {
+            console.log('Form is not valid');
+        }
     }
-}
     const formFields = [
         {name: 'user_name', placeholder: 'Username'},
         {name: 'password', placeholder: 'Password', secureTextEntry: true},
@@ -122,39 +139,39 @@ function Register({navigation}) {
     ];
 
 
-return (
-    <View style={styles.container}>
-        {formFields.map((field, index) => (
-            <TextInput
-                key={index}
-                style={styles.input}
-                value={form[field.name]}
-                onChangeText={value => setForm({...form, [field.name]: value})}
-                placeholder={field.placeholder}
-                secureTextEntry={field.secureTextEntry}
-            />
-        ))}
-        {Object.keys(errors).map((key, index) => (
-            errors[key] ? <Text key={index} style={styles.error}>{errors[key]}</Text> : null
-        ))}
-        <View style={styles.buttonContainer}>
-            <Button
-                title="Register"
-                onPress={register}
-                color="green"
-            />
-            <Button
-                title="Cancel"
-                onPress={() => navigation.navigate('Login')}
-                color="red"
-            />
+    return (
+        <View style={styles.container}>
+            {formFields.map((field, index) => (
+                <TextInput
+                    key={index}
+                    style={styles.input}
+                    value={form[field.name]}
+                    onChangeText={value => setForm({...form, [field.name]: value})}
+                    placeholder={field.placeholder}
+                    secureTextEntry={field.secureTextEntry}
+                />
+            ))}
+            {Object.keys(errors).map((key, index) => (
+                errors[key] ? <Text key={index} style={styles.error}>{errors[key]}</Text> : null
+            ))}
+            <View style={styles.buttonContainer}>
+                <Button
+                    title="Register"
+                    onPress={register}
+                    color="green"
+                />
+                <Button
+                    title="Cancel"
+                    onPress={() => navigation.navigate('Login')}
+                    color="red"
+                />
+            </View>
+            <Text style={styles.footnote}>
+                Only Parents or Guardians can sign up for this application. After initial sign up they may add
+                dependents to their account.
+            </Text>
         </View>
-        <Text style={styles.footnote}>
-            Only Parents or Guardians can sign up for this application. After initial sign up they may add
-            dependents to their account.
-        </Text>
-    </View>
-);
+    );
 }
 
 const styles = StyleSheet.create({
