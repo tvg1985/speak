@@ -353,6 +353,7 @@ function WordAction({navigation}) {
                 });
 
                 // Close the modal and reset photoToDelete
+                setPhotos(photos.filter(photo => photo.id !== photoToDelete.id));
                 setDeleteModalVisible(false);
                 setPhotoToDelete(null);
             } else {
@@ -496,6 +497,7 @@ function WordAction({navigation}) {
                 });
             }
             fetchCategories();
+            setCategories(categories.filter(category => category.id !== categoryToDelete.id));
             setDeleteCategoryModalVisible(false);
             setCategoryToDelete(null);
         } catch (error) {
@@ -824,8 +826,8 @@ const styles = StyleSheet.create({
     photo: {
         borderWidth: 1,
         borderColor: "red",
-        width: width * 0.2, // specify a width
-        height: 100, // specify a height
+        width: width * 0.4, // specify a width
+        height: height * 0.2, // specify a height
         backgroundColor: "gray", // add a gray background
         margin: 5,
     },

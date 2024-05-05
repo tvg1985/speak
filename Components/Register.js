@@ -5,13 +5,14 @@ import {ref, set, get} from "firebase/database";
 import * as Crypto from 'expo-crypto';
 import {v4 as uuid} from 'uuid';
 import * as Random from 'expo-random';
-import CryptoJS from 'react-native-crypto-js';
 import {v4 as uuidv4} from 'uuid';
-
+import CryptoJS from 'crypto-js';
 const {width, height} = Dimensions.get("window");
 
 
+
 function Register({navigation}) {
+    console.log('Register function called');
     const [form, setForm] = useState({
         user_name: '',
         password: '',
@@ -73,6 +74,7 @@ function Register({navigation}) {
     };
 
     const register = async () => {
+        console.log('Testing uuidv4 function:', uuidv4());
         console.log('register function called');
         console.log('form:', form);
         console.log('errors:', errors);
@@ -80,7 +82,9 @@ function Register({navigation}) {
         if (validateForm()) {
             console.log('Form is valid');
             const user_id = uuidv4();
-
+            console.log('UUID test:', uuidv4()); // Test the uuidv4 function
+            console.log('Before logging user_id'); // Check if this log is reached
+            console.log('User ID:', user_id); // Log user_id
             // Replace '.' with ',' in the email
             const emailKey = form.email.replace(/\./g, ',');
 
@@ -175,6 +179,7 @@ function Register({navigation}) {
         </View>
     );
 }
+
 
 const styles = StyleSheet.create({
     container: {
