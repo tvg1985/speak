@@ -512,7 +512,7 @@ function WordAction({navigation}) {
 
 
     return (
-        <View style={styles.container}>
+        <ScrollView contentContainerStyle={styles.container}>
             <View style={styles.topButtons}>
                 <Button
                     title="Home"
@@ -737,14 +737,12 @@ function WordAction({navigation}) {
                     </View>
                 </View>
             </Modal>
-        </View>
+        </ScrollView>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
-        flex: 1,
-        backgroundColor: "#fff",
         alignItems: "center",
         justifyContent: "space-between",
     },
@@ -826,8 +824,8 @@ const styles = StyleSheet.create({
     photo: {
         borderWidth: 1,
         borderColor: "red",
-        width: width * 0.4, // specify a width
-        height: height * 0.2, // specify a height
+        width: width * 0.3, // specify a width
+        height: height * 0.15, // specify a height
         backgroundColor: "gray", // add a gray background
         margin: 5,
     },
