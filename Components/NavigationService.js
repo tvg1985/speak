@@ -27,7 +27,6 @@ export default function NavigationService() {
                     <Stack.Screen name="WordAction" component={WordAction}/>
                     <Stack.Screen name="CategoryScreen" component={CategoryScreen}/>
                     <Stack.Screen name="Storybook" component={StorybookScreen}/>
-
                 </Stack.Navigator>
             </NavigationContainer>
         </UserIdContext.Provider>
