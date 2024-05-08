@@ -11,10 +11,12 @@ import {
     Modal,
     TextInput
 } from 'react-native';
-import {getDatabase, ref, onValue, query, orderByChild, equalTo} from 'firebase/database';
+import {getDatabase, ref, onValue, query, orderByChild, equalTo, push,set, remove} from 'firebase/database';
 import {useNavigation} from "@react-navigation/native";
 import * as ImagePicker from 'expo-image-picker';
 import {getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL} from "firebase/storage";
+import * as DocumentPicker from "expo-document-picker";
+import {Audio} from 'expo-av';
 
 const {width, height} = Dimensions.get("window");
 
@@ -33,21 +35,20 @@ function StorybookPage({route}) {
     const [audioButtonTitle, setAudioButtonTitle] = useState('Pick Audio');
 
     useEffect(() => {
-        if (storybookPages.length > 0) {
-            const db = getDatabase();
-            const storybookPagesRef = ref(db, 'storybook_pages');
-            const q = query(storybookPagesRef, orderByChild('storybook_id'), equalTo(storybook.storybook_id));
-            const unsubscribe = onValue(q, (snapshot) => {
-                const data = snapshot.val();
-                const pages = Object.values(data).filter(page => page.user_id === userId);
-                setStorybookPages(pages);
-            });
+        const db = getDatabase();
+        const storybookPagesRef = ref(db, 'storybook_pages');
+        const q = query(storybookPagesRef, orderByChild('storybook_id'), equalTo(storybook.storybook_id));
+        const unsubscribe = onValue(q, (snapshot) => {
+            const data = snapshot.val();
+            const pages = Object.values(data).filter(page => page.user_id === userId);
+            const sortedPages = pages.sort((a, b) => a.page_number - b.page_number);
+            setStorybookPages(sortedPages);
+        });
 
-            return () => {
-                unsubscribe();
-            };
-        }
-    }, [storybook.storybook_id, userId, storybookPages]);
+        return () => {
+            unsubscribe();
+        };
+    }, [storybook.storybook_id, userId]);
 
     const handlePickPhoto = async () => {
         try {
@@ -77,36 +78,64 @@ function StorybookPage({route}) {
     };
 
     const handlePickAudio = async () => {
-        const validMimeTypes = [
-            "audio/mpeg",
-            "audio/wav",
-            "audio/mp3",
-            "audio/x-wav",
-            "audio/x-mp3",
-            "audio/mp4",
-            "audio/x-m4a",
-        ];
+    const validMimeTypes = [
+        "audio/mpeg",
+        "audio/wav",
+        "audio/mp3",
+        "audio/x-wav",
+        "audio/x-mp3",
+        "audio/mp4",
+        "audio/x-m4a",
+    ];
 
-        let result = await DocumentPicker.getDocumentAsync({
-            type: "audio/*",
-        });
-        console.log("Audio file picker result: ", result);
+    let result = await DocumentPicker.getDocumentAsync({
+        type: "audio/*",
+    });
+    console.log("Audio file picker result: ", result);
 
-        if (!result.cancelled && result.uri) {
-            let uri = result.uri;
-            let mimeType = result.type;
+    if (!result.cancelled && result.assets && result.assets[0].uri) {
+        let uri = result.assets[0].uri;
+        let mimeType = result.assets[0].mimeType;
 
-            if (validMimeTypes.includes(mimeType)) {
-                console.log("audio valid, with mime type: ", mimeType);
-                setAudio(uri);
-                const fileName = uri.split("/").pop();
-                setAudioButtonTitle(fileName);
+        if (validMimeTypes.includes(mimeType)) {
+            console.log("audio valid, with mime type: ", mimeType);
+            setAudio(uri);
+            const fileName = result.assets[0].name;
+            setAudioButtonTitle(fileName);
+        }
+    } else {
+        console.log(
+            "No audio file was selected or an error occurred. Result: ",
+            result,
+        );
+    }
+};
+    let soundObject = null;
+    let currentAudioFile = null;
+
+    const playAudio = async (audioFile) => {
+        // If the user touches the same page again, stop the audio.
+        if (audioFile === currentAudioFile) {
+            if (soundObject) {
+                await soundObject.stopAsync();
+                soundObject = null;
+                currentAudioFile = null;
             }
         } else {
-            console.log(
-                "No audio file was selected or an error occurred. Result: ",
-                result,
-            );
+            // If a different page is touched, stop the current audio and start the new one.
+            if (soundObject) {
+                await soundObject.stopAsync();
+                soundObject = null;
+            }
+
+            soundObject = new Audio.Sound();
+            try {
+                await soundObject.loadAsync({uri: audioFile});
+                await soundObject.playAsync();
+                currentAudioFile = audioFile;
+            } catch (error) {
+                console.error("Error playing audio: ", error);
+            }
         }
     };
 
@@ -197,11 +226,11 @@ function StorybookPage({route}) {
                             data={storybookPages}
                             renderItem={({item, index}) => (
                                 <TouchableOpacity
-                                    onPress={() => playAudio(item.page_audio)}
+                                    onPress={() => navigation.navigate('StorybookDetail', {page: item})}
                                 >
                                     <Image source={{uri: item.page_photo}} style={{width: 100, height: 100}}/>
                                     <View>
-                                        <Text style={styles.centeredText}>{item.storybook_page_id}</Text>
+                                        <Text style={styles.centeredText}>{item.page_number}</Text>
                                     </View>
                                 </TouchableOpacity>
                             )}

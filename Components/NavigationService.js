@@ -11,6 +11,7 @@ import WordAction from "./WordAction";
 import CategoryScreen from "./CategoryScreen";
 import StorybookScreen from "./Storybook";
 import StorybookPage from "./StorybookPage";
+import StorybookDetail from "./StorybookDetail";
 
 const Stack = createStackNavigator();
 
@@ -29,6 +30,7 @@ export default function NavigationService() {
                     <Stack.Screen name="CategoryScreen" component={CategoryScreen}/>
                     <Stack.Screen name="Storybook" component={StorybookScreen}/>
                     <Stack.Screen name="StorybookPage" component={StorybookPage}/>
+                    <Stack.Screen name="StorybookDetail" component={StorybookDetail}/>
                 </Stack.Navigator>
             </NavigationContainer>
         </UserIdContext.Provider>
