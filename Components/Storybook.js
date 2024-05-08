@@ -170,7 +170,7 @@ function StorybookScreen({navigation}) {
             </View>
 
             <View style={styles.subsectionsContainer}>
-                <Text style={styles.header}>Storybooks</Text>
+                <Text style={styles.header}>Story Books</Text>
                 <View style={styles.subsection}>
                     {storybooks.length === 0 ? (
                         <Text style={styles.noStorybooksText}>You don't have any storybooks</Text>
