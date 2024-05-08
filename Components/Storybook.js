@@ -1,14 +1,28 @@
 import React, {useEffect, useState, useContext} from 'react';
-import {Button, View, StyleSheet, Text, Modal, TextInput} from 'react-native';
+import {
+    Button,
+    View,
+    StyleSheet,
+    Text,
+    Modal,
+    TextInput,
+    Image,
+    Dimensions,
+    FlatList,
+    ScrollView,
+    TouchableOpacity
+} from 'react-native';
 import {UserIdContext} from "./UserIdContext";
 import {getDatabase, ref, onValue, off, query, orderByChild, equalTo, push, set} from "firebase/database";
 import * as ImagePicker from 'expo-image-picker';
 import {getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL} from "firebase/storage";
 
+const {width, height} = Dimensions.get("window");
+
 function StorybookScreen({navigation}) {
     const [storybooks, setStorybooks] = useState([]);
     const [loading, setLoading] = useState(true);
-    const user = useContext(UserIdContext); // get the user from UserContext
+    const {userId} = React.useContext(UserIdContext);
     const [modalVisible, setModalVisible] = useState(false);
     const [storybookName, setStorybookName] = useState('');
     const [storybookProfilePhoto, setStorybookProfilePhoto] = useState('');
@@ -16,27 +30,31 @@ function StorybookScreen({navigation}) {
     const [storybookProfilePhotoMetaData, setStorybookProfilePhotoMetaData] = useState('');
 
     useEffect(() => {
-        if (user && user.uid) {
+        if (userId) {
             const database = getDatabase();
             const dbRef = ref(database, 'story_books');
-            const dbQuery = query(dbRef, orderByChild('user_id'), equalTo(user.uid));
+            const dbQuery = query(dbRef, orderByChild('user_id'), equalTo(userId));
             onValue(dbQuery, (snapshot) => {
                 const data = snapshot.val();
                 const storybooks = Object.values(data || {});
                 setStorybooks(storybooks);
-            })
-                .finally(() => {
-                    setLoading(false);
-                });
+                setLoading(false); // set loading to false here
+            });
         } else {
             setLoading(false);
         }
-    }, [user]);
+    }, [userId]);
 
     const handleAddStorybook = async () => {
         // validate form fields
         if (!storybookName || !storybookProfilePhoto) {
             alert('Please fill in all fields');
+            return;
+        }
+
+        // check if user object and uid property exist
+        if (!userId) {
+            alert('User not found');
             return;
         }
 
@@ -65,7 +83,7 @@ function StorybookScreen({navigation}) {
                         storybook_id: newStorybookRef.key,
                         storybook_name: storybookName,
                         storybook_profile_photo: downloadURL,
-                        user_id: user.uid,
+                        user_id: userId,
                     });
 
                     // update storybooks state
@@ -73,7 +91,7 @@ function StorybookScreen({navigation}) {
                         storybook_id: newStorybookRef.key,
                         storybook_name: storybookName,
                         storybook_profile_photo: downloadURL,
-                        user_id: user.uid,
+                        user_id: userId,
                     }]);
 
                     // close modal and reset form
@@ -84,7 +102,6 @@ function StorybookScreen({navigation}) {
             }
         );
     };
-
     const handlePickImage = async () => {
         try {
             let result = await ImagePicker.launchImageLibraryAsync({
@@ -96,6 +113,7 @@ function StorybookScreen({navigation}) {
                 const uri = result.assets[0].uri;
                 const fileName = result.assets[0].fileName;
                 const mimeType = result.assets[0].mimeType;
+                console.log('result:', result.assets[0])
 
                 if (mimeType === "image/png" || mimeType === "image/jpeg") {
                     let metadata = {
@@ -150,22 +168,36 @@ function StorybookScreen({navigation}) {
                     color="green"
                 />
             </View>
-            <View style={styles.subsection}>
-                {storybooks.length === 0 ? (
-                    <Text style={styles.noStorybooksText}>You don't have any storybooks</Text>
-                ) : (
-                    storybooks.map((storybook, index) => (
-                        <View key={index}>
-                            <Text>{storybook.storybook_name}</Text>
-                            {/* Add other storybook details here */}
-                        </View>
-                    ))
-                )}
+
+            <View style={styles.subsectionsContainer}>
+                <Text style={styles.header}>Storybooks</Text>
+                <View style={styles.subsection}>
+                    {storybooks.length === 0 ? (
+                        <Text style={styles.noStorybooksText}>You don't have any storybooks</Text>
+                    ) : (
+                        <FlatList
+                            data={storybooks}
+                            keyExtractor={(item, index) => index.toString()}
+                            renderItem={({item}) => (
+                                <TouchableOpacity
+                                    onPress={() => navigation.navigate('StorybookPage', {storybook: item, userId})}>
+                                    <View>
+                                        <Image style={styles.photo}
+                                               source={{uri: item.storybook_profile_photo}}
+                                        />
+                                        <Text style={styles.storybookName}> {item.storybook_name}</Text>
+                                    </View>
+                                </TouchableOpacity>
+                            )}
+                            numColumns={2}
+                        />
+                    )}
+                </View>
+                <Button
+                    title="Add"
+                    onPress={() => setModalVisible(true)}
+                />
             </View>
-            <Button
-                title="Add"
-                onPress={() => setModalVisible(true)}
-            />
             <Modal
                 animationType="slide"
                 transparent={true}
@@ -178,18 +210,24 @@ function StorybookScreen({navigation}) {
                             value={storybookName}
                             onChangeText={setStorybookName}
                         />
-                        <Button
-                            title={storybookProfilePhoto ? storybookProfilePhoto : "Pick Storybook Photo"}
-                            onPress={handlePickImage}
-                        />
-                        <Button
-                            title="Add"
-                            onPress={handleAddStorybook}
-                        />
-                        <Button
-                            title="Cancel"
-                            onPress={() => setModalVisible(false)}
-                        />
+                        <View style={styles.inputContainer}>
+                            <Text>Profile Photo:</Text>
+                            <Button
+                                title={storybookProfilePhotoFileName ? storybookProfilePhotoFileName : "Pick Storybook Photo"}
+                                onPress={handlePickImage}
+                            />
+                        </View>
+                        <View style={styles.buttonContainer}>
+                            <Button
+                                title="Add"
+                                onPress={handleAddStorybook}
+                            />
+                            <Button
+                                title="Cancel"
+                                onPress={() => setModalVisible(false)}
+                                color="red"
+                            />
+                        </View>
                     </View>
                 </View>
             </Modal>
@@ -202,8 +240,7 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#fff',
         alignItems: 'center',
-        justifyContent: 'flex-start',
-        marginTop: 10,
+        justifyContent: 'center', // center children vertically
     },
     topButtons: {
         flexDirection: 'row',
@@ -213,12 +250,16 @@ const styles = StyleSheet.create({
         marginTop: 20,
     },
     subsection: {
-        borderColor: 'gray',
-        borderWidth: 1,
-        borderRadius: 10,
-        padding: 10,
-        margin: 10,
-        marginTop: 30,
+        width: width * 0.8, // 80% of screen width
+        alignItems: "center",
+        marginVertical: 10,
+        borderColor: "#d3d3d3", // added border color
+        borderWidth: 1, // added border width
+    },
+    storybookList: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        alignContent: 'flex-start',
     },
     noStorybooksText: {
         color: 'gray',
@@ -229,11 +270,18 @@ const styles = StyleSheet.create({
         alignItems: "center",
         marginTop: 22,
     },
+    buttonContainer: {
+        flexDirection: "row", // Arrange buttons side by side
+        justifyContent: "center", // Center buttons horizontally
+        width: "100%", // Use full width of the container
+        marginTop: 20, // Add some margin at the top
+        marginBottom: 10, // Add some margin at the bottom
+    },
     modalView: {
-        margin: 10, // Decrease margin to increase modal size
+        margin: 20, // Increase margin to decrease modal size
         backgroundColor: "#f0f0f0",
         borderRadius: 20,
-        padding: 20, // Decrease padding to increase modal size
+        padding: 30, // Increase padding to decrease modal size
         alignItems: "center",
         shadowColor: "#000",
         shadowOffset: {
@@ -243,25 +291,42 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.25,
         shadowRadius: 4,
         elevation: 5,
-        width: "90%", // Set width to 90% of device width
-        height: "80%", // Set height to 80% of device height
-    },
-    buttonContainer: {
-        flexDirection: "row", // Arrange buttons side by side
-        justifyContent: "center", // Center buttons horizontally
-        width: "100%", // Use full width of the container
-        marginTop: 20, // Add some margin at the top
-        marginBottom: 10, // Add some margin at the bottom
+        width: "80%", // Set width to 80% of device width
+        height: "60%", // Set height to 60% of device height
     },
     inputContainer: {
-        flexDirection: "row", // Arrange text and input field side by side
-        justifyContent: "space-between", // Add space between text and input field
+        flexDirection: "row", // Arrange text and button side by side
+        justifyContent: "space-between", // Add space between text and button
         alignItems: "center", // Vertically align items in the center
         width: "100%", // Use full width of the container
         marginBottom: 10, // Add some margin at the bottom
     },
     fixedWidthButtonContainer: {
         width: 100, // Set a fixed width for the button
+    },
+    photo: {
+        borderWidth: 1,
+        borderColor: "red",
+        width: width * 0.3, // specify a width
+        height: height * 0.15, // specify a height
+        backgroundColor: "gray", // add a gray background
+        margin: 5,
+    },
+    storybookName: {
+        textAlign: 'center',
+        fontWeight: 'bold',
+    },
+    subsectionsContainer: {
+        flex: 1,
+        justifyContent: "flex-start",
+        alignItems: "center",
+        width: "100%",
+        marginTop: 60,
+    },
+    header: {
+        fontSize: 20,
+        fontWeight: "bold",
+        marginBottom: 10,
     },
 });
 
