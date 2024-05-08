@@ -250,8 +250,7 @@ function StorybookPage({route}) {
                 <View styles={styles.buttonWrapper}>
                     <Button
                         title="Play All Pages"
-                        onPress={() => {/* Add your navigation or function here */
-                        }}
+                        onPress={() => {navigation.navigate('StorybookDetail', {pages: storybookPages})}}
                     />
                 </View>
             </View>
