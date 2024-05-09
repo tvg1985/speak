@@ -21,7 +21,7 @@ import {Audio} from 'expo-av';
 const {width, height} = Dimensions.get("window");
 
 function StorybookPage({route}) {
-    const {storybook, userId} = route.params;
+    const {storybook, userId, userRole, parentId} = route.params;
     console.log('storybook', storybook);
     const navigation = useNavigation();
     const [storybookPages, setStorybookPages] = useState([]);
@@ -37,20 +37,21 @@ function StorybookPage({route}) {
     const [selectedPage, setSelectedPage] = useState(null);
 
     useEffect(() => {
-        const db = getDatabase();
-        const storybookPagesRef = ref(db, 'storybook_pages');
-        const q = query(storybookPagesRef, orderByChild('storybook_id'), equalTo(storybook.storybook_id));
-        const unsubscribe = onValue(q, (snapshot) => {
-            const data = snapshot.val();
-            const pages = data ? Object.values(data).filter(page => page.user_id === userId) : [];
-            const sortedPages = pages.sort((a, b) => a.page_number - b.page_number);
-            setStorybookPages(sortedPages);
-        });
+    const userIdToFetch = userRole === 'child' ? parentId : userId;
+    const db = getDatabase();
+    const storybookPagesRef = ref(db, 'storybook_pages');
+    const q = query(storybookPagesRef, orderByChild('user_id'), equalTo(userIdToFetch));
+    const unsubscribe = onValue(q, (snapshot) => {
+        const data = snapshot.val();
+        const pages = data ? Object.values(data).filter(page => page.storybook_id === storybook.storybook_id) : [];
+        const sortedPages = pages.sort((a, b) => a.page_number - b.page_number);
+        setStorybookPages(sortedPages);
+    });
 
-        return () => {
-            unsubscribe();
-        };
-    }, [storybook.storybook_id, userId]);
+    return () => {
+        unsubscribe();
+    };
+}, [storybook.storybook_id, userId, userRole, parentId]);
 
     const handlePickPhoto = async () => {
         try {
@@ -245,9 +246,11 @@ function StorybookPage({route}) {
                                 <TouchableOpacity
                                     onPress={() => navigation.navigate('StorybookDetail', {page: item})}
                                     onLongPress={() => {
+                                        if (userRole === 'parent') {
                                         setSelectedPage(item);
                                         setDeleteModalVisible(true)
                                     }}
+                                    }
                                 >
                                     <Image source={{uri: item.page_photo}} style={{width: 100, height: 100}}/>
                                     <View>
@@ -263,10 +266,12 @@ function StorybookPage({route}) {
             </View>
             <View style={styles.buttonContainer}>
                 <View style={styles.buttonWrapper}>
+                    {userRole === 'parent' && (
                     <Button
                         title="Add Page"
                         onPress={() => setModalVisible(true)}
                     />
+                        )}
                 </View>
                 <View styles={styles.buttonWrapper}>
                     <Button

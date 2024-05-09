@@ -30,12 +30,14 @@ import {Picker} from "@react-native-picker/picker";
 import {useForm, Controller} from "react-hook-form";
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from "expo-document-picker";
+import {UserIdContext} from "./UserIdContext";
 
 const {width, height} = Dimensions.get("window");
 
 
 function CategoryScreen({route}) {
     const {userId, categoryName} = route.params;
+    const {userRole, parentId} = React.useContext(UserIdContext);
     const [photos, setPhotos] = useState([]);
     const navigation = useNavigation();
     const [modalVisible, setModalVisible] = useState(false);
@@ -58,20 +60,26 @@ function CategoryScreen({route}) {
     const fetchPhotos = async () => {
         const db = getDatabase();
         const photosRef = dbRef(db, "photos");
-        const photosQuery = query(
-            photosRef,
-            orderByChild("user_id"),
-            equalTo(userId),
-        );
-        onValue(photosQuery, (snapshot) => {
-            const photosData = snapshot.val();
-            if (photosData) {
-                const photosArray = Object.entries(photosData)
-                    .map(([id, data]) => ({id, ...data}))
-                    .filter(photo => photo.category_id === categoryName);
-                setPhotos(photosArray);
-            }
-        });
+        const userIdToFetch = userRole === 'child' ? parentId : userId;
+
+        try {
+            const photosQuery = query(
+                photosRef,
+                orderByChild("user_id"),
+                equalTo(userIdToFetch),
+            );
+            onValue(photosQuery, (snapshot) => {
+                const photosData = snapshot.val();
+                if (photosData) {
+                    const photosArray = Object.entries(photosData)
+                        .map(([id, data]) => ({id, ...data}))
+                        .filter(photo => photo.category_id === categoryName);
+                    setPhotos(photosArray);
+                }
+            });
+        } catch (error) {
+            console.error("Error fetching photos: ", error);
+        }
     };
 
     let soundObject = null;
@@ -92,8 +100,10 @@ function CategoryScreen({route}) {
         }
     };
     const handleLongPressPhoto = (photo) => {
-        setSelectedPhoto(photo);
-        setModalVisible(true);
+        if (userRole === 'parent') {
+            setSelectedPhoto(photo);
+            setModalVisible(true);
+        }
     };
 
     const handleDeletePhoto = async () => {
@@ -318,11 +328,13 @@ function CategoryScreen({route}) {
                 </Modal>
             </View>
             <View style={styles.addActionButtonContainer}>
+                {userRole === 'parent' && (
                 <Button
                     title="Add Action"
                     color="blue"
                     onPress={handleAddAction}
                 />
+                    )}
             </View>
             <Modal
                 animationType="slide"

@@ -22,7 +22,7 @@ const {width, height} = Dimensions.get("window");
 function StorybookScreen({navigation}) {
     const [storybooks, setStorybooks] = useState([]);
     const [loading, setLoading] = useState(true);
-    const {userId} = React.useContext(UserIdContext);
+    const {userId, userRole, parentId} = React.useContext(UserIdContext);
     const [modalVisible, setModalVisible] = useState(false);
     const [storybookName, setStorybookName] = useState('');
     const [storybookProfilePhoto, setStorybookProfilePhoto] = useState('');
@@ -32,10 +32,11 @@ function StorybookScreen({navigation}) {
     const [storybookToDelete, setStorybookToDelete] = useState(null);
 
     useEffect(() => {
-        if (userId) {
+        const userIdToFetch = userRole === 'child' ? parentId : userId;
+        if (userIdToFetch) {
             const database = getDatabase();
             const dbRef = ref(database, 'story_books');
-            const dbQuery = query(dbRef, orderByChild('user_id'), equalTo(userId));
+            const dbQuery = query(dbRef, orderByChild('user_id'), equalTo(userIdToFetch));
             onValue(dbQuery, (snapshot) => {
                 const data = snapshot.val();
                 const storybooks = Object.values(data || {});
@@ -45,7 +46,7 @@ function StorybookScreen({navigation}) {
         } else {
             setLoading(false);
         }
-    }, [userId]);
+    }, [userId, userRole, parentId]);
 
     const handleAddStorybook = async () => {
         // validate form fields
@@ -207,10 +208,12 @@ function StorybookScreen({navigation}) {
                             keyExtractor={(item, index) => index.toString()}
                             renderItem={({item}) => (
                                 <TouchableOpacity
-                                    onPress={() => navigation.navigate('StorybookPage', {storybook: item, userId})}
+                                    onPress={() => navigation.navigate('StorybookPage', {storybook: item, userId, userRole, parentId})}
                                     onLongPress={() => {
-                                        setStorybookToDelete(item);
-                                        setDeleteModalVisible(true);
+                                        if (userRole === 'parent') {
+                                            setStorybookToDelete(item);
+                                            setDeleteModalVisible(true);
+                                        }
                                     }}
                                 >
                                     <View>
@@ -225,10 +228,12 @@ function StorybookScreen({navigation}) {
                         />
                     )}
                 </View>
+                {userRole === 'parent' && (
                 <Button
                     title="Add"
                     onPress={() => setModalVisible(true)}
                 />
+                    )}
             </View>
             <Modal
                 animationType="slide"

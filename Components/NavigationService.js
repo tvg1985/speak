@@ -20,8 +20,9 @@ export default function NavigationService() {
     const [userId, setUserId] = React.useState(null);
     const [userRole, setUserRole] = React.useState(null);
     const [userName, setUserName] = React.useState(null);
+    const [parentId, setParentId] = React.useState(null);
     return (
-        <UserIdContext.Provider value={{userId, setUserId, userRole, setUserRole, userName, setUserName}}>
+        <UserIdContext.Provider value={{userId, setUserId, userRole, setUserRole, userName, setUserName, parentId, setParentId}}>
             <NavigationContainer>
                 <Stack.Navigator initialRouteName="Login">
                     <Stack.Screen name="Home" component={HomeScreen}/>

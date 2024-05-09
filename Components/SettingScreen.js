@@ -16,6 +16,7 @@ import {
 import {getDatabase, ref, onValue, remove, push, set} from 'firebase/database';
 import {useNavigation} from '@react-navigation/native';
 import {UserIdContext} from './UserIdContext'; // Assuming you have a UserIdContext that provides the logged-in user
+import CryptoJS from "crypto-js";
 
 const windowWidth = Dimensions.get('window').width;
 const windowHeight = Dimensions.get('window').height;
@@ -35,16 +36,30 @@ const SettingsScreen = () => {
         const dependentsRef = ref(db, 'users');
         const handleData = snap => {
             if (snap.val()) {
-                const dependentsData = Object.values(snap.val()).filter(user => user.parent_id === userId);
+                const dependentsData = Object.entries(snap.val())
+                    .filter(([key, user]) => user.parent_id === userId)
+                    .map(([key, user]) => ({...user, user_id: key}));
                 setDependents(dependentsData);
             }
         };
-        onValue(dependentsRef, handleData, {onlyOnce: true});
+        onValue(dependentsRef, handleData);
     }, []);
 
-    const handleAddDependent = () => {
+
+    const handleAddDependent = async () => {
         let errors = {};
 
+        // Convert user_name to lowercase
+        const lowerCaseUserName = newDependent.user_name.toLowerCase();
+
+        // Check if user_name already exists
+        const userNameExists = dependents.some(dependent => dependent.user_name.toLowerCase() === lowerCaseUserName);
+
+        if (userNameExists) {
+            // Generate a unique user_name
+            const uniqueUserName = await generateUniqueUserName(lowerCaseUserName);
+            errors.user_name = `User name already exists. Try "${uniqueUserName}"`;
+        }
         // Add validation checks
         if (!newDependent.email) {
             errors.email = 'Email is required';
@@ -65,20 +80,53 @@ const SettingsScreen = () => {
             setFormErrors(errors);
             return;
         }
+
+        // Hash the password
+        const hashedPassword = CryptoJS.SHA256(newDependent.password).toString();
+
         // Add new dependent to Firebase Realtime Database
         const db = getDatabase();
         const newDependentRef = push(ref(db, 'users'));
-        set(newDependentRef, {...newDependent, parent_id: userId, role: 'child'});
+        set(newDependentRef, {
+            ...newDependent,
+            userName: lowerCaseUserName,
+            password: hashedPassword,
+            parent_id: userId,
+            role: 'child'
+        });
         setModalVisible(false);
         setNewDependent({email: '', password: '', confirmPassword: '', user_name: ''});
+    };
+    const generateUniqueUserName = async (baseUserName) => {
+        let uniqueUserName;
+        let userNameExists;
+
+        do {
+            // Generate a random number between 1 and 100
+            const randomNumber = Math.floor(Math.random() * 100) + 1;
+
+            // Append the random number to the baseUserName
+            uniqueUserName = `${baseUserName}${randomNumber}`;
+
+            // Check if the generated user_name already exists
+            userNameExists = dependents.some(dependent => dependent.user_name.toLowerCase() === uniqueUserName);
+        } while (userNameExists);
+
+        return uniqueUserName;
     };
 
     const handleDeleteDependent = () => {
         // Delete selected dependent from Firebase Realtime Database
         const db = getDatabase();
-        const dependentRef = ref(db, 'users/' + selectedDependent.id);
-        remove(dependentRef);
-        setSelectedDependent(null);
+        const dependentRef = ref(db, 'users/' + selectedDependent.user_id);
+        remove(dependentRef)
+            .then(() => {
+                console.log('Dependent deleted successfully');
+                setSelectedDependent(null);
+            })
+            .catch((error) => {
+                console.error('Error deleting dependent: ', error);
+            });
     };
 
     const resetForm = () => {
@@ -90,7 +138,7 @@ const SettingsScreen = () => {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        padding: 16,
+        padding: 20,
         borderBottomWidth: StyleSheet.hairlineWidth,
         borderBottomColor: '#bbb',
         borderColor: 'gray', // Add gray border color
@@ -113,6 +161,8 @@ const SettingsScreen = () => {
             </View>
             <Text style={styles.header}>{userName.toUpperCase()}</Text>
             <Text style={styles.role}>Role: {userRole.toUpperCase()}</Text>
+            {userRole === 'parent' && (
+                <>
             <Text style={styles.subsectionHeader}>Dependents</Text>
             {dependents.length > 0 ? (
                 <FlatList
@@ -131,6 +181,7 @@ const SettingsScreen = () => {
             <TouchableOpacity style={styles.customButton} onPress={() => setModalVisible(true)}>
                 <Text style={styles.buttonText}>Add</Text>
             </TouchableOpacity>
+            </> )}
             <Modal
                 animationType="slide"
                 transparent={true}
@@ -198,9 +249,15 @@ const SettingsScreen = () => {
             </Modal>
             {selectedDependent && (
                 <Modal visible={true}>
-                    <Text>Are you sure you want to delete this user?</Text>
-                    <Button title="Yes" onPress={handleDeleteDependent}/>
-                    <Button title="No" onPress={() => setSelectedDependent(null)}/>
+                    <View style={styles.centeredView}>
+                        <View style={styles.modalView}>
+                            <Text style={styles.header}>Are you sure you want to delete this user?</Text>
+                            <View style={styles.buttonContainer}>
+                                <Button title="Yes" onPress={handleDeleteDependent} color="blue"/>
+                                <Button title="No" onPress={() => setSelectedDependent(null)} color="red"/>
+                            </View>
+                        </View>
+                    </View>
                 </Modal>
             )}
         </ScrollView>

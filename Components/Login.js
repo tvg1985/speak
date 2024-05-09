@@ -10,7 +10,7 @@ import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view
 const {width, height} = Dimensions.get("window");
 
 function Login({ navigation }) {
-    const {setUserId, setUserRole, setUserName} = React.useContext(UserIdContext);
+    const {setUserId, setUserRole, setUserName, setParentId} = React.useContext(UserIdContext);
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
@@ -42,6 +42,7 @@ function Login({ navigation }) {
                 const dbUsername = user.user_name;
                 const dbPassword = user.password;
                 const dbRole = user.role; // Get the user role from the database
+                const dbParentId = user.parent_id; //Get the user parent ID from the database
                 const hashedPassword = await Crypto.digestStringAsync(
                     Crypto.CryptoDigestAlgorithm.SHA256,
                     password
@@ -50,7 +51,8 @@ function Login({ navigation }) {
                     // If login is successful, navigate to the Home screen
                     setUserId(userId);
                     setUserRole(dbRole);
-                    setUserName(dbUsername)
+                    setUserName(dbUsername);
+                    setParentId(dbParentId);
                     navigation.navigate('Home');
                     userExists = true;
                     break; // Stop looping through the users

@@ -43,10 +43,11 @@ const storage = getStorage();
 
 
 function WordAction({navigation}) {
-    const {userId, userRole, userName} = React.useContext(UserIdContext);
+    const {userId, userRole, userName, parentId} = React.useContext(UserIdContext);
     console.log("user id: ", userId);
     console.log("user role: ", userRole);
     console.log("user name: ", userName);
+    console.log("parent id: ", parentId);
     const [photoName, setPhotoName] = useState("");
     const [modalVisible, setModalVisible] = useState(false);
     const [photos, setPhotos] = useState([]); // Initialize photos state as an empty array
@@ -87,11 +88,12 @@ function WordAction({navigation}) {
     }, []);
 
     const fetchCategories = async () => {
-        console.log("fetching categories for user: ", userId);
         const db = getDatabase();
         const categoriesRef = dbRef(db, "categories");
+        const userIdToFetch = userRole === 'child' ? parentId : userId;
+
         try {
-            const categoriesQuery = query(categoriesRef, orderByChild("user_id"), equalTo(userId));
+            const categoriesQuery = query(categoriesRef, orderByChild("user_id"), equalTo(userIdToFetch));
             const snapshot = await get(categoriesQuery);
             if (snapshot.exists()) {
                 const categoriesData = snapshot.val();
@@ -103,6 +105,7 @@ function WordAction({navigation}) {
             console.error("Error fetching categories: ", error);
         }
     };
+
     const handleAddAction = () => {
         try {
             fetchCategories();
@@ -287,14 +290,15 @@ function WordAction({navigation}) {
     };
 
     const fetchPhotos = async () => {
-        console.log("fetching photos for user: ", userId);
         const db = getDatabase();
         const photosRef = dbRef(db, "photos");
+        const userIdToFetch = userRole === 'child' ? parentId : userId;
+
         try {
             const photosQuery = query(
                 photosRef,
                 orderByChild("user_id"),
-                equalTo(userId),
+                equalTo(userIdToFetch),
             );
             onValue(photosQuery, (snapshot) => {
                 const photosData = snapshot.val();
@@ -309,7 +313,6 @@ function WordAction({navigation}) {
             console.error("Error fetching photos: ", error);
         }
     };
-
 
     let soundObject = null;
     const playAudio = async (audioFile) => {
@@ -366,14 +369,18 @@ function WordAction({navigation}) {
         }
     };
     const handleLongPress = (item) => {
-        console.log("photoToDelete: ", item); // Add this line
-        setPhotoToDelete(item);
-        setDeleteModalVisible(true);
+        if (userRole === 'parent') {
+            console.log("photoToDelete: ", item); // Add this line
+            setPhotoToDelete(item);
+            setDeleteModalVisible(true);
+        }
     };
 
     const handleLongPressCategory = (item) => {
-        setCategoryToDelete(item);
-        setDeleteCategoryModalVisible(true);
+        if (userRole === 'parent') {
+            setCategoryToDelete(item);
+            setDeleteCategoryModalVisible(true);
+        }
     };
 
 
@@ -532,7 +539,9 @@ function WordAction({navigation}) {
             <View style={styles.subsectionsContainer}>
                 <View style={styles.subsection}>
                     <Text style={styles.header}>Word Actions:</Text>
+                    {userRole === "parent" && (
                     <Button title="Add Action" onPress={handleAddAction} color="blue"/>
+                        )}
                     <FlatList
                         data={photos}
                         renderItem={({item, index}) => (
@@ -550,11 +559,13 @@ function WordAction({navigation}) {
                 </View>
                 <View style={styles.subsection}>
                     <Text style={styles.header}>Categories:</Text>
+                    {userRole === "parent" && (
                     <Button
                         title="Add"
                         onPress={handleAddCategory}
                         color="blue"
                     />
+                        )}
                     <FlatList
                         data={categories}
                         renderItem={({item, index}) => {
