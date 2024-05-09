@@ -33,6 +33,8 @@ function StorybookPage({route}) {
     const [audios, setAudios] = useState([]);
     const [photoButtonTitle, setPhotoButtonTitle] = useState('Pick Photo');
     const [audioButtonTitle, setAudioButtonTitle] = useState('Pick Audio');
+    const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+    const [selectedPage, setSelectedPage] = useState(null);
 
     useEffect(() => {
         const db = getDatabase();
@@ -186,7 +188,6 @@ function StorybookPage({route}) {
     };
 
 
-
     const getBlobFromUri = async (uri) => {
         const blob = await new Promise((resolve, reject) => {
             const xhr = new XMLHttpRequest();
@@ -209,6 +210,13 @@ function StorybookPage({route}) {
         setAudio('');
         setPhotoButtonTitle('Pick Photo');
         setAudioButtonTitle('Pick Audio');
+    };
+
+    const handleDeletePage = () => {
+        const db = getDatabase();
+        const pageRef = ref(db, 'storybook_pages/' + selectedPage.storybook_page_id);
+        remove(pageRef);
+        setDeleteModalVisible(false);
     };
 
     return (
@@ -236,6 +244,10 @@ function StorybookPage({route}) {
                             renderItem={({item, index}) => (
                                 <TouchableOpacity
                                     onPress={() => navigation.navigate('StorybookDetail', {page: item})}
+                                    onLongPress={() => {
+                                        setSelectedPage(item);
+                                        setDeleteModalVisible(true)
+                                    }}
                                 >
                                     <Image source={{uri: item.page_photo}} style={{width: 100, height: 100}}/>
                                     <View>
@@ -311,6 +323,29 @@ function StorybookPage({route}) {
                                 }}
                                 color="red"
                                 style={styles.button}
+                            />
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+            <Modal
+                animationType="slide"
+                transparent={true}
+                visible={deleteModalVisible}
+            >
+                <View style={styles.centeredView}>
+                    <View style={styles.modalView}>
+                        <Text>Are you sure you want to delete this page?</Text>
+                        <View style={styles.buttonContainer}>
+                            <Button
+                                title="Yes"
+                                onPress={handleDeletePage}
+                                color="red"
+                            />
+                            <Button
+                                title="No"
+                                onPress={() => setDeleteModalVisible(false)}
+                                color="green"
                             />
                         </View>
                     </View>
