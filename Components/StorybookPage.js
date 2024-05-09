@@ -11,7 +11,7 @@ import {
     Modal,
     TextInput
 } from 'react-native';
-import {getDatabase, ref, onValue, query, orderByChild, equalTo, push,set, remove} from 'firebase/database';
+import {getDatabase, ref, onValue, query, orderByChild, equalTo, push, set, remove} from 'firebase/database';
 import {useNavigation} from "@react-navigation/native";
 import * as ImagePicker from 'expo-image-picker';
 import {getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL} from "firebase/storage";
@@ -78,38 +78,38 @@ function StorybookPage({route}) {
     };
 
     const handlePickAudio = async () => {
-    const validMimeTypes = [
-        "audio/mpeg",
-        "audio/wav",
-        "audio/mp3",
-        "audio/x-wav",
-        "audio/x-mp3",
-        "audio/mp4",
-        "audio/x-m4a",
-    ];
+        const validMimeTypes = [
+            "audio/mpeg",
+            "audio/wav",
+            "audio/mp3",
+            "audio/x-wav",
+            "audio/x-mp3",
+            "audio/mp4",
+            "audio/x-m4a",
+        ];
 
-    let result = await DocumentPicker.getDocumentAsync({
-        type: "audio/*",
-    });
-    console.log("Audio file picker result: ", result);
+        let result = await DocumentPicker.getDocumentAsync({
+            type: "audio/*",
+        });
+        console.log("Audio file picker result: ", result);
 
-    if (!result.cancelled && result.assets && result.assets[0].uri) {
-        let uri = result.assets[0].uri;
-        let mimeType = result.assets[0].mimeType;
+        if (!result.cancelled && result.assets && result.assets[0].uri) {
+            let uri = result.assets[0].uri;
+            let mimeType = result.assets[0].mimeType;
 
-        if (validMimeTypes.includes(mimeType)) {
-            console.log("audio valid, with mime type: ", mimeType);
-            setAudio(uri);
-            const fileName = result.assets[0].name;
-            setAudioButtonTitle(fileName);
+            if (validMimeTypes.includes(mimeType)) {
+                console.log("audio valid, with mime type: ", mimeType);
+                setAudio(uri);
+                const fileName = result.assets[0].name;
+                setAudioButtonTitle(fileName);
+            }
+        } else {
+            console.log(
+                "No audio file was selected or an error occurred. Result: ",
+                result,
+            );
         }
-    } else {
-        console.log(
-            "No audio file was selected or an error occurred. Result: ",
-            result,
-        );
-    }
-};
+    };
     let soundObject = null;
     let currentAudioFile = null;
 
@@ -185,6 +185,8 @@ function StorybookPage({route}) {
         setAudioButtonTitle('Pick Audio');
     };
 
+
+
     const getBlobFromUri = async (uri) => {
         const blob = await new Promise((resolve, reject) => {
             const xhr = new XMLHttpRequest();
@@ -200,6 +202,13 @@ function StorybookPage({route}) {
         });
 
         return blob;
+    };
+    const resetForm = () => {
+        setPageNumber('');
+        setPhoto('');
+        setAudio('');
+        setPhotoButtonTitle('Pick Photo');
+        setAudioButtonTitle('Pick Audio');
     };
 
     return (
@@ -250,7 +259,9 @@ function StorybookPage({route}) {
                 <View styles={styles.buttonWrapper}>
                     <Button
                         title="Play All Pages"
-                        onPress={() => {navigation.navigate('StorybookDetail', {pages: storybookPages})}}
+                        onPress={() => {
+                            navigation.navigate('StorybookDetail', {pages: storybookPages})
+                        }}
                     />
                 </View>
             </View>
@@ -294,7 +305,10 @@ function StorybookPage({route}) {
                             />
                             <Button
                                 title="Cancel"
-                                onPress={() => setModalVisible(false)}
+                                onPress={() => {
+                                    setModalVisible(false);
+                                    resetForm();
+                                }}
                                 color="red"
                                 style={styles.button}
                             />

@@ -152,6 +152,13 @@ function StorybookScreen({navigation}) {
         return <Text>Loading...</Text>;
     }
 
+    const resetForm = () => {
+        setStorybookName('');
+        setStorybookProfilePhoto('');
+        setStorybookProfilePhotoFileName('');
+        setStorybookProfilePhotoMetaData('');
+    };
+
     return (
         <View style={styles.container}>
             <View style={styles.topButtons}>
@@ -224,7 +231,8 @@ function StorybookScreen({navigation}) {
                             />
                             <Button
                                 title="Cancel"
-                                onPress={() => setModalVisible(false)}
+                                onPress={() => {setModalVisible(false);
+                                    resetForm()}}
                                 color="red"
                             />
                         </View>
