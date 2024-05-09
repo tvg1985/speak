@@ -10,7 +10,8 @@ import {
     StyleSheet,
     Dimensions,
     KeyboardAvoidingView,
-    Platform
+    Platform,
+    ScrollView
 } from 'react-native';
 import {getDatabase, ref, onValue, remove, push, set} from 'firebase/database';
 import {useNavigation} from '@react-navigation/native';
@@ -27,6 +28,7 @@ const SettingsScreen = () => {
     const [newDependent, setNewDependent] = useState({email: '', password: '', confirmPassword: '', user_name: ''});
     const navigation = useNavigation();
     const [formErrors, setFormErrors] = useState({});
+
 
     useEffect(() => {
         const db = getDatabase();
@@ -84,17 +86,31 @@ const SettingsScreen = () => {
         setFormErrors({});
     };
 
+    const dependentContainerStyle = {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: 16,
+        borderBottomWidth: StyleSheet.hairlineWidth,
+        borderBottomColor: '#bbb',
+        borderColor: 'gray', // Add gray border color
+        borderWidth: dependents.length, // Dynamic border width based on the number of dependents
+    };
+
     return (
-        <View style={styles.container}>
-            <Button title="Back" onPress={() => navigation.goBack()} color="green"/>
-            <Button
-                title="Logout"
-                onPress={() => {
-                    setUserId(null); // Clear the user's session or token
-                    navigation.navigate('Login'); // Navigate back to the Login screen
-                }}
-                color="red"
-            />
+        <ScrollView style={styles.container}>
+            <View style={styles.topButtons}>
+
+                <Button title="Back" onPress={() => navigation.goBack()} color="green"/>
+                <Button
+                    title="Logout"
+                    onPress={() => {
+                        setUserId(null); // Clear the user's session or token
+                        navigation.navigate('Login'); // Navigate back to the Login screen
+                    }}
+                    color="red"
+                />
+            </View>
             <Text style={styles.header}>{userName.toUpperCase()}</Text>
             <Text style={styles.role}>Role: {userRole.toUpperCase()}</Text>
             <Text style={styles.subsectionHeader}>Dependents</Text>
@@ -102,7 +118,7 @@ const SettingsScreen = () => {
                 <FlatList
                     data={dependents}
                     renderItem={({item}) => (
-                        <View style={styles.dependentContainer}>
+                        <View style={dependentContainerStyle}>
                             <Text style={styles.dependentName}>{item.user_name}</Text>
                             <Button title="Delete" onPress={() => setSelectedDependent(item)}/>
                         </View>
@@ -112,7 +128,9 @@ const SettingsScreen = () => {
             ) : (
                 <Text style={styles.noDependentsText}>You have no dependent accounts</Text>
             )}
-            <Button title="Add" onPress={() => setModalVisible(true)}/>
+            <TouchableOpacity style={styles.customButton} onPress={() => setModalVisible(true)}>
+                <Text style={styles.buttonText}>Add</Text>
+            </TouchableOpacity>
             <Modal
                 animationType="slide"
                 transparent={true}
@@ -185,7 +203,7 @@ const SettingsScreen = () => {
                     <Button title="No" onPress={() => setSelectedDependent(null)}/>
                 </Modal>
             )}
-        </View>
+        </ScrollView>
     );
 };
 
@@ -195,27 +213,30 @@ const styles = StyleSheet.create({
         padding: 16,
         backgroundColor: '#fff',
     },
+    topButtons: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        width: '100%',
+        marginBottom: 20,
+    },
     header: {
         fontSize: 24,
         fontWeight: 'bold',
         marginBottom: 8,
+        textAlign: 'center',
     },
     role: {
         fontSize: 18,
         marginBottom: 16,
+        justifyContent: 'center',
+        textAlign: 'center',
     },
     subsectionHeader: {
         fontSize: 20,
         fontWeight: 'bold',
         marginBottom: 8,
-    },
-    dependentContainer: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: 16,
-        borderBottomWidth: StyleSheet.hairlineWidth,
-        borderBottomColor: '#bbb',
+        textAlign: 'center',
+        margin: 30,
     },
     dependentName: {
         fontSize: 16,
@@ -223,6 +244,7 @@ const styles = StyleSheet.create({
     noDependentsText: {
         fontSize: 16,
         color: 'gray',
+        textAlign: 'center',
     },
     centeredView: {
         flex: 1,
@@ -270,6 +292,20 @@ const styles = StyleSheet.create({
     },
     errorText: {
         color: 'red',
+    },
+    customButton: {
+        backgroundColor: '#007BFF', // Change to the color of your choice
+        paddingVertical: 10, // Adjust as needed
+        paddingHorizontal: 20, // Adjust as needed
+        borderRadius: 5, // Adjust as needed
+        alignSelf: 'center',
+        marginTop: 20, // Adjust as needed
+        marginBottom: 10, // Adjust as needed
+    },
+    buttonText: {
+        color: '#fff', // Change to the color of your choice
+        fontSize: 16, // Adjust as needed
+        textAlign: 'center',
     },
 });
 
