@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
-import StorybookPage from './StorybookPage';
+import StorybookPage from '../Components/StorybookPage';
 
 jest.mock('@react-navigation/native', () => ({
   useNavigation: jest.fn(),
