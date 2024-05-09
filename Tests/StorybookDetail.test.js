@@ -29,5 +29,23 @@ describe('StorybookPageDetail', () => {
     // Add assertion for navigation.goBack() being called
   });
 
+  it('plays audio when component is rendered', async () => {
+    const { getByText } = render(<StorybookDetail route={{ params: { page: { page_photo: 'test_photo', page_number: '1', page_audio: 'test_audio' } } }} />);
+    await waitFor(() => expect(Audio.Sound.prototype.loadAsync).toHaveBeenCalled());
+    expect(Audio.Sound.prototype.playAsync).toHaveBeenCalled();
+  });
+
+  it('displays image correctly', () => {
+    const { getByTestId } = render(<StorybookDetail route={{ params: { page: { page_photo: 'test_photo', page_number: '1' } } }} />);
+    const image = getByTestId('storybook-image');
+    expect(image.props.source.uri).toBe('test_photo');
+  });
+
+  it('displays page number correctly', () => {
+    const { getByTestId } = render(<StorybookDetail route={{ params: { page: { page_photo: 'test_photo', page_number: '1' } } }} />);
+    const pageNumber = getByTestId('storybook-page-number');
+    expect(pageNumber.props.children).toBe('1');
+  });
+
   // Add more tests as needed
 });

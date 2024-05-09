@@ -4,20 +4,34 @@ import firebase from 'firebase';
 import MockFirebase from 'firebase-mock';
 import WordAction from '../Components/WordAction';
 
-let mockdatabase = new MockFirebase.MockFirebase();
-let mocksdk = new MockFirebase.MockFirebaseSdk(
-    () => {
-        return null;
-    },
-    () => {
-        return mockdatabase;
-    }
-);
+jest.mock('@react-navigation/native', () => ({
+    useNavigation: jest.fn(),
+}));
 
-// Replace the firebase instance with the mock instance
-jest.mock('firebase', () => {
-    return mocksdk;
-});
+jest.mock('firebase/database', () => ({
+    getDatabase: jest.fn(),
+    ref: jest.fn(),
+    onValue: jest.fn(),
+    query: jest.fn(),
+    orderByChild: jest.fn(),
+    equalTo: jest.fn(),
+    push: jest.fn(),
+    set: jest.fn(),
+    remove: jest.fn(),
+}));
+
+jest.mock('expo-image-picker', () => ({
+    launchImageLibraryAsync: jest.fn(),
+    MediaTypeOptions: {
+        Images: 'Images',
+    },
+}));
+
+jest.mock('../Components/UserIdContext', () => ({
+    UserIdContext: {
+        Consumer: (props) => props.children({ userRole: 'child', parentId: 'parent1' }),
+    },
+}));
 
 describe('WordAction', () => {
 
@@ -107,14 +121,14 @@ describe('WordAction', () => {
     });
     describe('categories', () => {
         it('fetches categories from the database', async () => {
-            const categories = [ /* your categories data here */ ];
+            const categories = [ /* your categories data here */];
 
             // Mock the fetchCategories function
             const fetchCategories = jest.fn(() => Promise.resolve(categories));
             WordAction.fetchCategories = fetchCategories;
 
             // Render the WordAction component
-            const { getByTestId } = render(<WordAction />);
+            const {getByTestId} = render(<WordAction/>);
 
             // Wait for the categories to be fetched
             await waitFor(() => expect(fetchCategories).toHaveBeenCalled());
@@ -128,7 +142,7 @@ describe('WordAction', () => {
             const categories = ['1', '2', '3'];
 
             // Render the WordAction component with the categories state
-            const { getByTestId } = render(<WordAction categories={categories} />);
+            const {getByTestId} = render(<WordAction categories={categories}/>);
 
             // Check if the FlatList contains the correct number of category items
             const categoryItems = getByTestId('categoryItems'); // Assuming you have testID='categoryItems' on your category items
@@ -138,8 +152,39 @@ describe('WordAction', () => {
             categories.forEach((category, index) => {
                 const categoryItem = categoryItems[index];
                 expect(categoryItem).toHaveTextContent(category.category_name);
-                expect(categoryItem).toHaveProp('source', { uri: category.category_photo });
+                expect(categoryItem).toHaveProp('source', {uri: category.category_photo});
             });
         });
+    });
+
+    describe('Roles', () => {
+        // ...existing tests...
+
+        it('disables "Add Action" button when user role is child', async () => {
+            const {getByText} = render(<WordAction/>);
+            const addActionButton = getByText('Add Action');
+            fireEvent.press(addActionButton);
+            await waitFor(() => expect(getByText('You do not have permission to add actions')).toBeTruthy());
+        });
+
+        it('loads parent actions when user role is child', async () => {
+            const {getByTestId} = render(<WordAction/>);
+            await waitFor(() => expect(getByTestId('action-list')).toBeTruthy());
+        });
+
+        it('opens modal when "Add Action" button is pressed and user role is parent', async () => {
+            jest.mock('../Components/UserIdContext', () => ({
+                UserIdContext: {
+                    Consumer: (props) => props.children({userRole: 'parent', parentId: 'parent1'}),
+                },
+            }));
+
+            const {getByText, getByTestId} = render(<WordAction/>);
+            const addActionButton = getByText('Add Action');
+            fireEvent.press(addActionButton);
+            await waitFor(() => expect(getByTestId('modal')).toBeTruthy());
+        });
+
+        // Add more tests as needed
     });
 });

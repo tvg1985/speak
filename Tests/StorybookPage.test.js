@@ -35,17 +35,41 @@ jest.mock('expo-av', () => ({
   },
 }));
 
+jest.mock('../Components/UserIdContext', () => ({
+  UserIdContext: {
+    Consumer: (props) => props.children({ userRole: 'child', parentId: 'parent1' }),
+  },
+}));
+
 describe('StorybookPage', () => {
   it('renders correctly', () => {
     const { getByText } = render(<StorybookPage route={{ params: { storybook: {}, userId: '1' } }} />);
     expect(getByText('Storybook')).toBeTruthy();
   });
 
-  it('opens the modal when the Add Page button is pressed', async () => {
+  it('opens the modal when the Add Page button is pressed and user role is parent', async () => {
+    jest.mock('../Components/UserIdContext', () => ({
+      UserIdContext: {
+        Consumer: (props) => props.children({ userRole: 'parent', parentId: 'parent1' }),
+      },
+    }));
+
     const { getByText, getByTestId } = render(<StorybookPage route={{ params: { storybook: {}, userId: '1' } }} />);
     const addButton = getByText('Add Page');
     fireEvent.press(addButton);
     await waitFor(() => expect(getByTestId('modal')).toBeTruthy());
+  });
+
+  it('loads parent storybook pages when user role is child', async () => {
+    const { getByTestId } = render(<StorybookPage route={{ params: { storybook: {}, userId: '1' } }} />);
+    await waitFor(() => expect(getByTestId('storybook-page-list')).toBeTruthy());
+  });
+
+  it('disables long press functionality when user role is child', async () => {
+    const { getByTestId } = render(<StorybookPage route={{ params: { storybook: {}, userId: '1' } }} />);
+    const storybookItem = getByTestId('storybook-item');
+    fireEvent.longPress(storybookItem);
+    await waitFor(() => expect(getByTestId('delete-modal')).not.toBeTruthy());
   });
 
   // Add more tests as needed

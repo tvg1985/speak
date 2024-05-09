@@ -46,5 +46,45 @@ describe('StorybookScreen', () => {
     await waitFor(() => expect(getByTestId('modal')).toBeTruthy());
   });
 
+  it('disables long press functionality when user role is child', async () => {
+    // Mock the UserIdContext to return 'child' as the userRole
+    jest.mock('../Components/UserIdContext', () => ({
+      UserIdContext: {
+        Consumer: (props) => props.children({ userRole: 'child' }),
+      },
+    }));
+
+    const { getByTestId } = render(<StorybookScreen />);
+    const storybookItem = getByTestId('storybook-item');
+    fireEvent.longPress(storybookItem);
+    await waitFor(() => expect(getByTestId('delete-modal')).not.toBeTruthy());
+  });
+
+  it('loads parent storybooks when user role is child', async () => {
+    // Mock the UserIdContext to return 'child' as the userRole
+    jest.mock('../Components/UserIdContext', () => ({
+      UserIdContext: {
+        Consumer: (props) => props.children({ userRole: 'child', parentId: 'parent1' }),
+      },
+    }));
+
+    const { getByTestId } = render(<StorybookScreen />);
+    await waitFor(() => expect(getByTestId('storybook-list')).toBeTruthy());
+  });
+
+  it('loads parent storybook pages when user role is child', async () => {
+    // Mock the UserIdContext to return 'child' as the userRole
+    jest.mock('../Components/UserIdContext', () => ({
+      UserIdContext: {
+        Consumer: (props) => props.children({ userRole: 'child', parentId: 'parent1' }),
+      },
+    }));
+
+    const { getByTestId } = render(<StorybookScreen />);
+    const storybookItem = getByTestId('storybook-item');
+    fireEvent.press(storybookItem);
+    await waitFor(() => expect(getByTestId('storybook-page-list')).toBeTruthy());
+  });
+
   // Add more tests as needed
 });
