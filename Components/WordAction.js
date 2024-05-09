@@ -43,8 +43,10 @@ const storage = getStorage();
 
 
 function WordAction({navigation}) {
-    const {userId} = React.useContext(UserIdContext);
+    const {userId, userRole, userName} = React.useContext(UserIdContext);
     console.log("user id: ", userId);
+    console.log("user role: ", userRole);
+    console.log("user name: ", userName);
     const [photoName, setPhotoName] = useState("");
     const [modalVisible, setModalVisible] = useState(false);
     const [photos, setPhotos] = useState([]); // Initialize photos state as an empty array
@@ -522,7 +524,7 @@ function WordAction({navigation}) {
                 <Button
                     title="Settings"
                     onPress={() => {
-                        // settings function here
+                        navigation.navigate("Settings")// settings function here
                     }}
                     color="green"
                 />
