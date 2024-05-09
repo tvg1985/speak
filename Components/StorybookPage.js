@@ -229,7 +229,7 @@ function StorybookPage({route}) {
                 />
                 <Button
                     title="Settings"
-                    onPress={() => navigation.navigate('SettingsScreen')}
+                    onPress={() => navigation.navigate('Settings')}
                     color='green'
                 />
             </View>

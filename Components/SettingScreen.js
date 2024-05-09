@@ -20,7 +20,7 @@ const windowWidth = Dimensions.get('window').width;
 const windowHeight = Dimensions.get('window').height;
 
 const SettingsScreen = () => {
-    const {userId, userRole, userName} = useContext(UserIdContext);
+    const {userId, userRole, userName, setUserId} = useContext(UserIdContext);
     const [modalVisible, setModalVisible] = useState(false);
     const [dependents, setDependents] = useState([]);
     const [selectedDependent, setSelectedDependent] = useState(null);
@@ -86,11 +86,17 @@ const SettingsScreen = () => {
 
     return (
         <View style={styles.container}>
-            <Button title="Back" onPress={() => navigation.goBack()}/>
-            <Button title="Logout" onPress={() => { /* Add logout functionality here */
-            }}/>
+            <Button title="Back" onPress={() => navigation.goBack()} color="green"/>
+            <Button
+                title="Logout"
+                onPress={() => {
+                    setUserId(null); // Clear the user's session or token
+                    navigation.navigate('Login'); // Navigate back to the Login screen
+                }}
+                color="red"
+            />
             <Text style={styles.header}>{userName.toUpperCase()}</Text>
-            <Text style={styles.role}>Role: {userRole}</Text>
+            <Text style={styles.role}>Role: {userRole.toUpperCase()}</Text>
             <Text style={styles.subsectionHeader}>Dependents</Text>
             {dependents.length > 0 ? (
                 <FlatList

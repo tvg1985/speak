@@ -22,7 +22,7 @@ function HomeScreen({navigation}) {
                 <Button
                     title="Settings"
                     onPress={() => {
-                        //  settings function here
+                       navigation.navigate('Settings');
                     }}
                     color="green"
                 />
