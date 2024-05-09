@@ -13,7 +13,7 @@ import {
     TouchableOpacity
 } from 'react-native';
 import {UserIdContext} from "./UserIdContext";
-import {getDatabase, ref, onValue, off, query, orderByChild, equalTo, push, set} from "firebase/database";
+import {getDatabase, ref, onValue, off, query, orderByChild, equalTo, push, set, remove} from "firebase/database";
 import * as ImagePicker from 'expo-image-picker';
 import {getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL} from "firebase/storage";
 
@@ -28,6 +28,8 @@ function StorybookScreen({navigation}) {
     const [storybookProfilePhoto, setStorybookProfilePhoto] = useState('');
     const [storybookProfilePhotoFileName, setStorybookProfilePhotoFileName] = useState('');
     const [storybookProfilePhotoMetaData, setStorybookProfilePhotoMetaData] = useState('');
+    const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+    const [storybookToDelete, setStorybookToDelete] = useState(null);
 
     useEffect(() => {
         if (userId) {
@@ -159,6 +161,24 @@ function StorybookScreen({navigation}) {
         setStorybookProfilePhotoMetaData('');
     };
 
+    const handleDeleteStorybook = async () => {
+        if (storybookToDelete) {
+            const database = getDatabase();
+            const storybookRef = ref(database, `story_books/${storybookToDelete.storybook_id}`);
+            const pagesRef = ref(database, `pages/${storybookToDelete.storybook_id}`);
+
+            // Delete the storybook and its pages
+            await remove(storybookRef);
+            await remove(pagesRef);
+
+            // Remove the storybook from the local state
+            setStorybooks(storybooks.filter(storybook => storybook.storybook_id !== storybookToDelete.storybook_id));
+
+            // Close the delete confirmation modal
+            setDeleteModalVisible(false);
+        }
+    };
+
     return (
         <View style={styles.container}>
             <View style={styles.topButtons}>
@@ -187,7 +207,12 @@ function StorybookScreen({navigation}) {
                             keyExtractor={(item, index) => index.toString()}
                             renderItem={({item}) => (
                                 <TouchableOpacity
-                                    onPress={() => navigation.navigate('StorybookPage', {storybook: item, userId})}>
+                                    onPress={() => navigation.navigate('StorybookPage', {storybook: item, userId})}
+                                    onLongPress={() => {
+                                        setStorybookToDelete(item);
+                                        setDeleteModalVisible(true);
+                                    }}
+                                >
                                     <View>
                                         <Image style={styles.photo}
                                                source={{uri: item.storybook_profile_photo}}
@@ -219,10 +244,12 @@ function StorybookScreen({navigation}) {
                         />
                         <View style={styles.inputContainer}>
                             <Text>Profile Photo:</Text>
-                            <Button
-                                title={storybookProfilePhotoFileName ? storybookProfilePhotoFileName : "Pick Storybook Photo"}
-                                onPress={handlePickImage}
-                            />
+                            <View style={styles.dynamicButtonContainer}>
+                                <Button
+                                    title={storybookProfilePhotoFileName ? storybookProfilePhotoFileName : "Pick Storybook Photo"}
+                                    onPress={handlePickImage}
+                                />
+                            </View>
                         </View>
                         <View style={styles.buttonContainer}>
                             <Button
@@ -231,9 +258,34 @@ function StorybookScreen({navigation}) {
                             />
                             <Button
                                 title="Cancel"
-                                onPress={() => {setModalVisible(false);
-                                    resetForm()}}
+                                onPress={() => {
+                                    setModalVisible(false);
+                                    resetForm()
+                                }}
                                 color="red"
+                            />
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+            <Modal
+                animationType="slide"
+                transparent={true}
+                visible={deleteModalVisible}
+            >
+                <View style={styles.centeredView}>
+                    <View style={styles.modalView}>
+                        <Text>Are you sure you want to delete this storybook?</Text>
+                        <View style={styles.buttonContainer}>
+                            <Button
+                                title="Yes"
+                                onPress={handleDeleteStorybook}
+                                color="red"
+                            />
+                            <Button
+                                title="No"
+                                onPress={() => setDeleteModalVisible(false)}
+                                color="green"
                             />
                         </View>
                     </View>
@@ -336,6 +388,9 @@ const styles = StyleSheet.create({
         fontWeight: "bold",
         marginBottom: 10,
     },
+    dynamicButtonContainer: {
+        width: '50%',
+    }
 });
 
 export default StorybookScreen;

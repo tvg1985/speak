@@ -40,7 +40,7 @@ function StorybookPage({route}) {
         const q = query(storybookPagesRef, orderByChild('storybook_id'), equalTo(storybook.storybook_id));
         const unsubscribe = onValue(q, (snapshot) => {
             const data = snapshot.val();
-            const pages = Object.values(data).filter(page => page.user_id === userId);
+            const pages = data ? Object.values(data).filter(page => page.user_id === userId) : [];
             const sortedPages = pages.sort((a, b) => a.page_number - b.page_number);
             setStorybookPages(sortedPages);
         });
